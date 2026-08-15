@@ -34,26 +34,10 @@ public class DataPoint {
 	double x(int d) { return _x[d]; }
 	
 	public double euclidean_distance( DataPoint t1 ) {
-	    double dd = .0;
-	    double [] x1 = t1._x;
-	    double [] x2 = _x;
-	    double diff;
-	    for(int d = 0; d < t1._D; d++) {
-	        diff = (x1[d] - x2[d]);
-	        dd += diff * diff;
-	    }
-	    return sqrt(dd);
+	    return sqrt(EuclideanDistance.squaredDistance(t1._x, _x, t1._D));
 	}
-	
+
 	public static double euclidean_distance( DataPoint t1, DataPoint t2 ) {
-	    double dd = .0;
-	    double [] x1 = t1._x;
-	    double [] x2 = t2._x;
-	    double diff;
-	    for(int d = 0; d < t1._D; d++) {
-	        diff = (x1[d] - x2[d]);
-	        dd += diff * diff;
-	    }
-	    return sqrt(dd);
+	    return sqrt(EuclideanDistance.squaredDistance(t1._x, t2._x, t1._D));
 	}
 }

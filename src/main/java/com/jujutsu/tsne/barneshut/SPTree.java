@@ -23,12 +23,10 @@ public class SPTree {
     double[] center_of_mass;
     int [] index = new int[QT_NODE_CAPACITY];
     
-    // Children
+    // Children, only allocated once this node has been subdivided
     SPTree [] children;
     int no_children;
     double max_width_sq;
-    
-    protected double[] buff;
 
 	public SPTree(int D, double[] inp_data, int N) {
 		// Compute mean, width, and height of current map (boundaries of SPTree)
@@ -81,11 +79,7 @@ public class SPTree {
 		}
 		max_width_sq = max_width * max_width;
 
-		children = getTreeArray(no_children);
-		for(int i = 0; i < no_children; i++) children[i] = null;
-		
-		buff = new double[dimension];
-		
+		// the children are only allocated when this node is subdivided, leaf nodes do not need them
 	}
 	
 	// Constructor for SPTree with particular size and parent -- build the tree, too!
@@ -136,14 +130,11 @@ public class SPTree {
 	// Insert a point into the SPTree
 	boolean insert(int new_index)
 	{
+		// Read the point in place, an offset into the flat data array is all we need
+		final int offset = new_index * dimension;
+
 		// Ignore objects which do not belong in this quad tree
-		double [] point = MatrixOps.extractRowFromFlatMatrix(data,new_index,dimension);
-
-		if(Double.isNaN(point[0]) || Double.isNaN(point[1])) {
-			System.err.println("Point is NaN!");
-		}
-
-		if(!boundary.containsPoint(point))
+		if(!boundary.containsPoint(data, offset))
 			return false;
 
 		// Online update of cumulative size and center-of-mass
@@ -152,7 +143,7 @@ public class SPTree {
 		double mult2 = 1.0 / (double) cum_size;
 		for(int d = 0; d < dimension; d++) {
 			center_of_mass[d] *= mult1;
-			center_of_mass[d] += mult2 * point[d];
+			center_of_mass[d] += mult2 * data[offset + d];
 		}
 
 		// If there is space in this quad tree and it is a leaf, add the object here
@@ -166,8 +157,9 @@ public class SPTree {
 		boolean any_duplicate = false;
 		for(int n = 0; n < size; n++) {
 			boolean duplicate = true;
+			int other = index[n] * dimension;
 			for(int d = 0; d < dimension; d++) {
-				if(point[d] != data[index[n] * dimension + d]) { duplicate = false; break; }
+				if(data[offset + d] != data[other + d]) { duplicate = false; break; }
 			}
 			any_duplicate = any_duplicate || duplicate;
 		}
@@ -176,20 +168,27 @@ public class SPTree {
 		// Otherwise, we need to subdivide the current cell
 		if(is_leaf) subdivide();
 
-		// Find out where the point can be inserted
-		for(int i = 0; i < no_children; i++) {
-			if(children[i].insert(new_index)) return true;
-		}
+		// The child containing the point follows directly from the position relative to the corner,
+		// so there is no need to probe all of the children
+		return children[childIndex(offset)].insert(new_index);
+	}
 
-		// Otherwise, the point cannot be inserted (this should never happen)
-		assert false;
-		return false;
+	// Index of the child cell that contains the point starting at the given offset. Bit d of the
+	// child index is set if the point lies in the lower half of dimension d, which is exactly the
+	// layout subdivide() creates.
+	int childIndex(int offset) {
+		int child = 0;
+		for(int d = 0; d < dimension; d++) {
+			if(data[offset + d] < boundary.getCorner(d)) child |= (1 << d);
+		}
+		return child;
 	}
 
 	// Create four children which fully divide this cell into four quads of equal area
 	void subdivide() {
 
 		// Create new children
+		children = getTreeArray(no_children);
 		double [] new_corner = new double[dimension];
 		double [] new_width  = new double[dimension];
 		for(int i = 0; i < no_children; i++) {
@@ -206,16 +205,7 @@ public class SPTree {
 
 		// Move existing points to correct children
 		for(int i = 0; i < size; i++) {
-			boolean success = false;
-			for(int j = 0; j < no_children; j++) {
-				if(!success) {
-					success = children[j].insert(index[i]);
-					if(success) break;
-				}
-			}
-//			if(!success && no_children > 0) {
-//				System.err.println("Didn't manage to move point i=" + i + " => " + Arrays.toString(MatrixOps.extractRowFromFlatMatrix(data,i,dimension)));
-//			}
+			children[childIndex(index[i] * dimension)].insert(index[i]);
 			index[i] = -1;
 		}
 
@@ -433,9 +423,16 @@ public class SPTree {
 		// Checks whether a point lies in a cell
 		boolean containsPoint(double point[])
 		{
+			return containsPoint(point, 0);
+		}
+
+		// Checks whether the point starting at the given offset of a flat matrix lies in a cell
+		boolean containsPoint(double[] flatMatrix, int offset)
+		{
 			for(int d = 0; d < dimension; d++) {
-				if(corner[d] - width[d] > point[d]) return false;
-				if(corner[d] + width[d] < point[d]) return false;
+				double coordinate = flatMatrix[offset + d];
+				if(corner[d] - width[d] > coordinate) return false;
+				if(corner[d] + width[d] < coordinate) return false;
 			}
 			return true;
 		}
