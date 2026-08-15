@@ -105,8 +105,8 @@ public class ParallelBHTsne extends BHTSne {
 		List<TreeSearchResult> results = tree.searchMultiple(tree, obj_X, K+1);
 
 		for (TreeSearchResult res : results) {
-			List<Double> distances = res.getDistances();
-			List<DataPoint> indices = res.getIndices();
+			double [] distances = res.getNeighborDistances();
+			DataPoint [] indices = res.getNeighbors();
 			int n = res.getIndex();
 
 			// Initialize some variables for binary search
@@ -126,9 +126,9 @@ public class ParallelBHTsne extends BHTSne {
 				//sum_P = 0.0;
 				double H = .0;
 				for(int m = 0; m < K; m++) {
-					cur_P[m] = exp(-beta * distances.get(m + 1));
+					cur_P[m] = exp(-beta * distances[m + 1]);
 					sum_P += cur_P[m];
-					H += beta * (distances.get(m + 1) * cur_P[m]);
+					H += beta * (distances[m + 1] * cur_P[m]);
 				}
 				H = (H / sum_P) + log(sum_P);
 
@@ -162,7 +162,7 @@ public class ParallelBHTsne extends BHTSne {
 			for(int m = 0; m < K; m++) {
 				cur_P[m] /= sum_P;
 				int idx = row_P[n] + m;
-				int newval = indices.get(m + 1).index();
+				int newval = indices[m + 1].index();
 				col_P[idx] = newval;
 				double newvalp = cur_P[m];
 				val_P[row_P[n] + m] = newvalp;

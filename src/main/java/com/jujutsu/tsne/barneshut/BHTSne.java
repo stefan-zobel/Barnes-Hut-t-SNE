@@ -607,15 +607,14 @@ public class BHTSne implements BarnesHutTSne {
 
 		// Loop over all points to find nearest neighbors
 		System.out.println("Building tree...");
-		List<DataPoint> indices = new ArrayList<>();
-		List<Double> distances = new ArrayList<>();
+		// reused across all points, the search overwrites them
+		DataPoint [] indices = new DataPoint[K + 1];
+		double [] distances = new double[K + 1];
 		for(int n = 0; n < N; n++) {
 
 			if(n % 10000 == 0) System.out.printf(" - point %d of %d\n", n, N);
 
 			// Find nearest neighbors
-			indices.clear();
-			distances.clear();
 			//System.out.println("Looking at: " + obj_X.get(n).index());
 			tree.search(obj_X[n], K + 1, indices, distances);
 
@@ -635,12 +634,12 @@ public class BHTSne implements BarnesHutTSne {
 				sum_P = Double.MIN_VALUE;
 				double H = .0;
 				for(int m = 0; m < K; m++) {
-					cur_P[m] = exp(-beta * distances.get(m + 1));
+					cur_P[m] = exp(-beta * distances[m + 1]);
 					if(Double.isNaN(cur_P[m])) {
 						System.out.println("Point is NaN!");
 					}
 					sum_P += cur_P[m];
-					H += beta * (distances.get(m + 1) * cur_P[m]);
+					H += beta * (distances[m + 1] * cur_P[m]);
 				}
 				H = (H / sum_P) + log(sum_P);
 
@@ -677,7 +676,7 @@ public class BHTSne implements BarnesHutTSne {
 					System.out.println("Point is NaN!");
 				}	
 
-				col_P[row_P[n] + m] = indices.get(m + 1).index();
+				col_P[row_P[n] + m] = indices[m + 1].index();
 				val_P[row_P[n] + m] = cur_P[m];
 				if(Double.isNaN(val_P[row_P[n] + m])) {
 					System.out.println("Point is NaN!");
