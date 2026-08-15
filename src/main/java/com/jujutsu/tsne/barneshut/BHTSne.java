@@ -43,13 +43,17 @@ import java.util.List;
 import java.util.stream.DoubleStream;
 
 import com.jujutsu.tsne.TSneConfiguration;
+import com.jujutsu.tsne.progress.ConsoleProgressListener;
+import com.jujutsu.tsne.progress.ProgressListener;
+import com.jujutsu.tsne.progress.TSneProgress;
 import com.jujutsu.utils.MatrixOps;
 
 import math.linalg.JacobiPCA;
-import me.tongfei.progressbar.ProgressBar;
-import me.tongfei.progressbar.ProgressBarBuilder;
 
 public class BHTSne implements BarnesHutTSne {
+
+	/** Name of the progress task reported by the main training loop. */
+	public static final String TASK_GRADIENT_DESCENT = "Calc T-Sne";
 
 	protected final Distance distance = new EuclideanDistance();
 	protected volatile boolean abort = false;
@@ -157,6 +161,22 @@ public class BHTSne implements BarnesHutTSne {
 
 	// Perform t-SNE
 	double [][] run(TSneConfiguration parameterObject) {
+		// silent() only controls the built-in console rendering; listeners registered from the
+		// outside via TSneProgress are notified in either case
+		ProgressListener console = parameterObject.silent() ? null : new ConsoleProgressListener();
+		if(console != null) {
+			TSneProgress.addProgressListener(console);
+		}
+		try {
+			return runInternal(parameterObject);
+		} finally {
+			if(console != null) {
+				TSneProgress.removeProgressListener(console);
+			}
+		}
+	}
+
+	private double [][] runInternal(TSneConfiguration parameterObject) {
 		int D = parameterObject.getXStartDim();
 		double[][] Xin = parameterObject.getXin();
 		boolean exact = (parameterObject.getTheta() == .0);
@@ -279,17 +299,7 @@ public class BHTSne implements BarnesHutTSne {
 		else System.out.printf("Done in %4.2f seconds (sparsity = %f)!\nLearning embedding...\n", (end - start) / 1000.0, (double) row_P[N] / ((double) N * (double) N));
 		start = System.currentTimeMillis();
 
-		String progressName = "Calc T-Sne";
-		ProgressBar pb = null;
-		if(!parameterObject.silent()) {
-			ProgressBarBuilder pbb = new ProgressBarBuilder()
-				    .setInitialMax(parameterObject.getMaxIter())
-				    //.setStyle(ProgressBarStyle.ASCII)
-				    .setTaskName(progressName)
-				    .setMaxRenderedLength(200);
-			
-			pb = pbb.build();
-		}
+		TSneProgress.reset(TASK_GRADIENT_DESCENT, parameterObject.getMaxIter());
 		for(int iter = 0; iter < parameterObject.getMaxIter() && !abort; iter++) {
 
 			if(exact) computeExactGradient(P, Y, N, no_dims, dY);
@@ -310,7 +320,6 @@ public class BHTSne implements BarnesHutTSne {
 
 			// Print out progress
 			if ( ((iter > 0 && iter % 50 == 0) || iter == parameterObject.getMaxIter() - 1) && !parameterObject.silent() ) {
-//				end = System.currentTimeMillis();
 				String err_string = "not_calculated";
 				if(parameterObject.printError()) {
 					double C = .0;
@@ -318,21 +327,12 @@ public class BHTSne implements BarnesHutTSne {
 					else      C = evaluateError(row_P, col_P, val_P, Y, N, no_dims, parameterObject.getTheta());  // doing approximate computation here!
 					err_string = "" + C;
 				}
-				pb.setExtraMessage("Err: " + err_string);
-				pb.stepBy(50);
-//				if(iter == 0)
-//					System.out.printf("Iteration %d: error is %s\n", iter + 1, err_string);
-//				else {
-//					total_time += (end - start) / 1000.0;
-//					System.out.printf("Iteration %d: error is %s (50 iterations in %4.2f seconds)\n", iter, err_string, (end - start) / 1000.0);
-//				}
-//				start = System.currentTimeMillis();
+				TSneProgress.setMessage("Err: " + err_string);
 			}
+			TSneProgress.updateTo(iter + 1);
 		}
-		if(!parameterObject.silent()) {
-			pb.close();
-		}
-		
+		TSneProgress.finished();
+
 		end = System.currentTimeMillis();
 		total_time += (end - start) / 1000.0;
 
@@ -1029,5 +1029,4 @@ public class BHTSne implements BarnesHutTSne {
 	public void abort() {
 		abort = true;
 	}
-
 }

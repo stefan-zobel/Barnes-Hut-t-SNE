@@ -8,19 +8,23 @@ import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import me.tongfei.progressbar.ProgressBar;
+import com.jujutsu.tsne.progress.TSneProgress;
 
 public class ParallelVpTree<StorageType> extends VpTree<StorageType> {
-	
+
+	/** Name of the progress task reported by {@link #searchMultiple(ParallelVpTree, DataPoint[], int)}. */
+	public static final String TASK_PERPLEXITY = "Perplexity";
+
 	public ParallelVpTree(Distance distance) {
 		super(distance);
 	}
-	
+
 	public List<TreeSearchResult> searchMultiple(ParallelVpTree<StorageType> tree, DataPoint [] targets, int k) {
 		VpTree<StorageType>.Node node = tree.getRoot();
 		List<TreeSearchResult> results = Collections.synchronizedList(new ArrayList<TreeSearchResult>());
-		
-		ProgressBar.wrap(IntStream.range(0, targets.length).parallel(), "Perplexity").forEach(n -> {
+
+		TSneProgress.reset(TASK_PERPLEXITY, targets.length);
+		IntStream.range(0, targets.length).parallel().forEach(n -> {
 			DataPoint target = targets[n];
 			List<DataPoint> indices = new ArrayList<>();
 			List<Double> distances = new ArrayList<>();
@@ -47,8 +51,10 @@ public class ParallelVpTree<StorageType> extends VpTree<StorageType> {
 			Collections.reverse(distances);
 
 			results.add(new TreeSearchResult(indices, distances,n));
+			TSneProgress.update();
 		});
-		
+		TSneProgress.finished();
+
 		return results;
 	}
 
