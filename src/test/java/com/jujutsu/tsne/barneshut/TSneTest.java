@@ -11,6 +11,7 @@ public class TSneTest {
         int initial_dims = 55;
         double perplexity = 20.0;
         double[][] X = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/datasets/mnist2500_X.txt"), "   ");
+        System.out.println("Finished reading data, starting t-SNE...");
 
         BarnesHutTSne tsne;
         boolean parallel = true;

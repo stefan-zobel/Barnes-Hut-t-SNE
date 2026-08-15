@@ -38,7 +38,6 @@ import static java.lang.Math.log;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.DoubleStream;
 
@@ -49,6 +48,7 @@ import com.jujutsu.tsne.progress.TSneProgress;
 import com.jujutsu.utils.MatrixOps;
 
 import math.linalg.JacobiPCA;
+import math.linalg.TruncatedPCA;
 
 public class BHTSne implements BarnesHutTSne {
 
@@ -68,6 +68,89 @@ public class BHTSne implements BarnesHutTSne {
 	@Override
 	public double[][] tsne(TSneConfiguration config) {
 		return run(config);
+	}
+
+	/**
+	 * The leading {@code k} columns of an already reduced data set, mean centered - which is what a
+	 * PCA over that data set computes, since its principal directions are the canonical basis
+	 * vectors. Callers must have established that the columns are principal components in
+	 * descending order.
+	 */
+	static double [][] leadingColumns(double [][] x, int k) {
+		final int rows = x.length;
+		double [] mean = new double[k];
+		for (int i = 0; i < rows; i++) {
+			for (int c = 0; c < k; c++) mean[c] += x[i][c];
+		}
+		for (int c = 0; c < k; c++) mean[c] /= rows;
+
+		double [][] leading = new double[rows][k];
+		for (int i = 0; i < rows; i++) {
+			for (int c = 0; c < k; c++) leading[i][c] = x[i][c] - mean[c];
+		}
+		return leading;
+	}
+
+	/**
+	 * Feature count above which the truncated PCA is used for the embedding initialization. A full
+	 * decomposition computes all components in O(m n^2) + O(sweeps n^3) although two are needed;
+	 * measured at m = 5000 the two methods break even around n = 32, and the truncated one is
+	 * already 3.9x ahead at n = 64 and 108x at n = 784. Below the threshold the exact path costs at
+	 * most about 20 ms, so there is nothing to gain by approximating there.
+	 */
+	private static final int TRUNCATED_PCA_MIN_DIMS = 64;
+
+	/**
+	 * Fraction of the leading component's spread below which a trailing component is treated as
+	 * carrying no usable direction. Data with one dominant direction and noise behind it reaches
+	 * 6e-3 here.
+	 */
+	private static final double NEGLIGIBLE_SPREAD = 1e-2;
+
+	/**
+	 * The leading {@code k} principal components of {@code x}, used to initialize the embedding.
+	 * Uses the truncated method where it pays off, and falls back to the exact decomposition when
+	 * the truncated one neither reaches its tolerance nor is left with directions that do not
+	 * matter anyway.
+	 */
+	static double [][] initialComponents(double [][] x, int k) {
+		if(x[0].length > TRUNCATED_PCA_MIN_DIMS) {
+			TruncatedPCA truncated = new TruncatedPCA();
+			double [][] projected = truncated.pca(x, k);
+			if(truncated.converged() || onlyTheLeadingComponentCarriesVariance(projected)) {
+				return projected;
+			}
+		}
+		return new JacobiPCA().pca(x, k);
+	}
+
+	/**
+	 * Whether every component behind the first carries a negligible share of its spread. Where that
+	 * holds, those directions are not determined by the data - an exact decomposition picks an
+	 * equally arbitrary one - and an embedding initialization that is scaled down to 1e-4 anyway
+	 * gains nothing from resolving them.
+	 */
+	private static boolean onlyTheLeadingComponentCarriesVariance(double [][] projected) {
+		if(projected[0].length < 2) return true;
+		double leading = spread(projected, 0);
+		if(!(leading > 0.0)) return false;
+		for (int c = 1; c < projected[0].length; c++) {
+			if(spread(projected, c) > NEGLIGIBLE_SPREAD * leading) return false;
+		}
+		return true;
+	}
+
+	private static double spread(double [][] projected, int c) {
+		final int rows = projected.length;
+		double mean = 0.0;
+		for (int i = 0; i < rows; i++) mean += projected[i][c];
+		mean /= rows;
+		double variance = 0.0;
+		for (int i = 0; i < rows; i++) {
+			double d = projected[i][c] - mean;
+			variance += d * d;
+		}
+		return Math.sqrt(variance / rows);
 	}
 
 	private double[] flatten(double[][] x) {
@@ -190,21 +273,27 @@ public class BHTSne implements BarnesHutTSne {
 
 		if(exact) throw new IllegalArgumentException("The Barnes Hut implementation does not support exact inference yet (theta==0.0), if you want exact t-SNE please use one of the standard t-SNE implementations (FastTSne for instance)");
 
-		JacobiPCA pca = new JacobiPCA();
+		int N = parameterObject.getNrRows();
+		int no_dims = parameterObject.getOutputDims();
+
+		boolean reduced = false;
 		if(parameterObject.usePca() && D > parameterObject.getInitialDims() && parameterObject.getInitialDims() > 0) {
-			Xin = pca.pca(Xin, parameterObject.getInitialDims());
+			Xin = new JacobiPCA().pca(Xin, parameterObject.getInitialDims());
 			D = parameterObject.getInitialDims();
+			reduced = true;
 			System.out.println("X:Shape after PCA is = " + Xin.length + " x " + Xin[0].length);
 		}
 
-		double [] X = flatten(Xin);	
+		double [] X = flatten(Xin);
 
-		double [][] Yinit = pca.pca(Xin, parameterObject.getOutputDims());
+		// The reduction above already expresses the data in its own principal basis, so its
+		// covariance is diagonal with descending entries. The principal directions of the reduced
+		// data are then the canonical basis vectors, which canonicalizeSigns fixes to +e_k, and a
+		// second decomposition would only reproduce the leading columns it already has.
+		double [][] Yinit = (reduced && D >= no_dims) ? leadingColumns(Xin, no_dims)
+		                                             : initialComponents(Xin, no_dims);
 		double [] pc1 = MatrixOps.transposeSerial(Yinit)[0];
 		double sd = sd(pc1);
-
-		int N = parameterObject.getNrRows();
-		int no_dims = parameterObject.getOutputDims();
 
 		// Init y with PCA (from: The art of using t-SNE for single-cell transcriptomics)
 		double [] Y = new double[N*no_dims];
