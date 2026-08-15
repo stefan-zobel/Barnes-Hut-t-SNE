@@ -33,9 +33,21 @@ public class ParallelBHTsne extends BHTSne {
 			uY[i] = momentum * uY[i] - eta * gains[i] * dY[i];
 		});
 	}
+
+	@Override
+	double klDivergence(int [] row_P, int [] col_P, double [] val_P, double [] Y, int N, int D, double totalSum_Q) {
+		double [] rowCosts = new double[N];
+		IntStream.range(0, N).parallel().forEach(n -> {
+			rowCosts[n] = klDivergenceOfRow(n, row_P, col_P, val_P, Y, D, totalSum_Q);
+		});
+		// summed sequentially, as computeGradient does for sum_Q, so that the result does not depend
+		// on how the work happened to be split between the threads
+		return DoubleStream.of(rowCosts).sum();
+	}
+
 	// Compute gradient of the t-SNE cost function (using Barnes-Hut algorithm)
 	@Override
-	void computeGradient(int [] inp_row_P, 
+	void computeGradient(int [] inp_row_P,
 			int [] inp_col_P, double [] inp_val_P, 	double [] Y, int N, int D, 
 			double [] dC, double theta, int iter)
 	{
@@ -64,7 +76,8 @@ public class ParallelBHTsne extends BHTSne {
 			tree.computeNonEdgeForces(i, theta, neg_f[i], buff[i], sum_Q);
 		});
 		double totalSum_Q = DoubleStream.of(sum_Q).sum();
-		
+		lastSumQ = totalSum_Q;
+
 		// Compute final t-SNE gradient
 		IntStream.range(0, N).parallel().forEach( n -> {
 			for (int d = 0; d < D; d++)

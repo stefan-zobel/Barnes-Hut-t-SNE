@@ -58,6 +58,13 @@ public class BHTSne implements BarnesHutTSne {
 	protected final Distance distance = new EuclideanDistance();
 	protected volatile boolean abort = false;
 
+	/**
+	 * Normalization term of the Q distribution, as computed by the most recent
+	 * {@link #computeGradient} call. It belongs to the embedding that call was given: once Y has been
+	 * moved by {@link #updateGradient}, this is the normalization of the previous state.
+	 */
+	protected double lastSumQ;
+
 	@Override
 	public double[][] tsne(TSneConfiguration config) {
 		return run(config);
@@ -306,6 +313,21 @@ public class BHTSne implements BarnesHutTSne {
 			// Compute (approximate) gradient
 			else computeGradient(row_P, col_P, val_P, Y, N, no_dims, dY, parameterObject.getTheta(), iter);
 
+			// Print out progress. This runs before the update so that the cost can reuse the
+			// normalization the gradient step has just computed for exactly this embedding, instead
+			// of building a second space partitioning tree. The reported value therefore describes Y
+			// as it entered this iteration.
+			if ( ((iter > 0 && iter % 50 == 0) || iter == parameterObject.getMaxIter() - 1) && !parameterObject.silent() ) {
+				String err_string = "not_calculated";
+				if(parameterObject.printError()) {
+					double C = .0;
+					if(exact) C = evaluateError(P, Y, N, no_dims);
+					else      C = klDivergence(row_P, col_P, val_P, Y, N, no_dims, lastSumQ);  // doing approximate computation here!
+					err_string = "" + C;
+				}
+				TSneProgress.setMessage("Err: " + err_string);
+			}
+
 			updateGradient(N, no_dims, Y, momentum, eta, dY, uY, gains);
 
 			// Make solution zero-mean
@@ -318,17 +340,6 @@ public class BHTSne implements BarnesHutTSne {
 			}
 			if(iter == mom_switch_iter) momentum = final_momentum;
 
-			// Print out progress
-			if ( ((iter > 0 && iter % 50 == 0) || iter == parameterObject.getMaxIter() - 1) && !parameterObject.silent() ) {
-				String err_string = "not_calculated";
-				if(parameterObject.printError()) {
-					double C = .0;
-					if(exact) C = evaluateError(P, Y, N, no_dims);
-					else      C = evaluateError(row_P, col_P, val_P, Y, N, no_dims, parameterObject.getTheta());  // doing approximate computation here!
-					err_string = "" + C;
-				}
-				TSneProgress.setMessage("Err: " + err_string);
-			}
 			TSneProgress.updateTo(iter + 1);
 		}
 		TSneProgress.finished();
@@ -376,6 +387,7 @@ public class BHTSne implements BarnesHutTSne {
 		for (int n = 0; n < N; n++)
 			tree.computeNonEdgeForces(n, theta, neg_f[n], buff[n], sum_Q);
 		totalSum_Q = DoubleStream.of(sum_Q).sum();
+		lastSumQ = totalSum_Q;
 
 		// Compute final t-SNE gradient
 		for (int n = 0; n < N; n++)
@@ -461,44 +473,49 @@ public class BHTSne implements BarnesHutTSne {
 		return C;
 	}
 
-	// Evaluate t-SNE cost function (approximately)
-	private static double evaluateError(int[] row_P, int[] col_P,
-			double[] val_P, double[] Y, int N, int D, double theta)
-	{
-		// Get estimate of normalization term
-		SPTree tree = new SPTree(D, Y, N);
-		double[] buff = new double[D];
-		double[][] buffs = new double[N][D];
-		double totalSum_Q = 0.0;
-		double[] sum_Q = new double[N];
-
-		// Compute all terms required for t-SNE gradient
-		for (int n = 0; n < N; n++)
-			tree.computeNonEdgeForces(n, theta, buff, buffs[n], sum_Q);
-		totalSum_Q = DoubleStream.of(sum_Q).sum();
-
-		// Loop over all edges to compute t-SNE error
-		int ind1, ind2;
-		double C = .0, Q;
-		for (int n = 0; n < N; n++)
-		{
-			ind1 = n * D;
-			for (int i = row_P[n]; i < row_P[n + 1]; i++)
-			{
-				Q = .0;
-				ind2 = col_P[i] * D;
-				for (int d = 0; d < D; d++)
-					buff[d] = Y[ind1 + d];
-				for (int d = 0; d < D; d++)
-					buff[d] -= Y[ind2 + d];
-				for (int d = 0; d < D; d++)
-					Q += buff[d] * buff[d];
-				Q = (1.0 / (1.0 + Q)) / totalSum_Q;
-				C += val_P[i] * log(
-						(val_P[i] + Double.MIN_VALUE) / (Q + Double.MIN_VALUE));
-			}
+	/**
+	 * Kullback-Leibler divergence between the sparse input similarities and the current embedding,
+	 * which is the t-SNE cost function.
+	 * <p>
+	 * Unlike {@link #evaluateError(int[], int[], double[], double[], int, int, double)} this builds no
+	 * space partitioning tree of its own: it takes the normalization term that the gradient step of
+	 * the same iteration has already computed from exactly this embedding, so only the sum over the
+	 * edges of the sparse similarity matrix is left to do.
+	 *
+	 * @param row_P row offsets of the sparse input similarities
+	 * @param col_P column indices of the sparse input similarities
+	 * @param val_P values of the sparse input similarities
+	 * @param Y the embedding, flat, N times D
+	 * @param N the number of points
+	 * @param D the number of output dimensions
+	 * @param totalSum_Q normalization of the Q distribution for this embedding, see {@link #lastSumQ}
+	 * @return the cost
+	 */
+	double klDivergence(int [] row_P, int [] col_P, double [] val_P, double [] Y, int N, int D, double totalSum_Q) {
+		double C = .0;
+		for (int n = 0; n < N; n++) {
+			C += klDivergenceOfRow(n, row_P, col_P, val_P, Y, D, totalSum_Q);
 		}
+		return C;
+	}
 
+	/**
+	 * Contribution of one row of the sparse similarity matrix to {@link #klDivergence}.
+	 */
+	final double klDivergenceOfRow(int n, int [] row_P, int [] col_P, double [] val_P, double [] Y, int D,
+			double totalSum_Q) {
+		double C = .0;
+		final int ind1 = n * D;
+		for (int i = row_P[n]; i < row_P[n + 1]; i++) {
+			final int ind2 = col_P[i] * D;
+			double Q = .0;
+			for (int d = 0; d < D; d++) {
+				double diff = Y[ind1 + d] - Y[ind2 + d];
+				Q += diff * diff;
+			}
+			Q = (1.0 / (1.0 + Q)) / totalSum_Q;
+			C += val_P[i] * log((val_P[i] + Double.MIN_VALUE) / (Q + Double.MIN_VALUE));
+		}
 		return C;
 	}
 
