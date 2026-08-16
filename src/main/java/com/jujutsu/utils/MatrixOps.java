@@ -89,7 +89,7 @@ public class MatrixOps {
 	}
 	
 	public static String doubleArrayToPrintString(double[][] m, String colDelimiter, int toprowlim, int btmrowlim, int collim, String sentenceDelimiter) {
-		StringBuffer str = new StringBuffer(m.length * m[0].length);
+		StringBuilder str = new StringBuilder(m.length * m[0].length);
 
 		str.append("Dim:" + m.length + " x " + m[0].length + "\n");
 
@@ -152,7 +152,7 @@ public class MatrixOps {
 	}
 
 	public static String doubleArrayToString(double[][] m, String colDelimiter) {
-		StringBuffer str = new StringBuffer(m.length * m[0].length);
+		StringBuilder str = new StringBuilder(m.length * m[0].length);
 		for (int i = 0; i < m.length; i++) {
 			for (int j = 0; j < m[i].length - 1; j++) {
 				str = str.append(Double.toString(m[i][j]));
@@ -820,7 +820,6 @@ public class MatrixOps {
 		}
 	}
 
-
 	// Unit Tested
 	/**
 	 * @param matrix
@@ -928,7 +927,6 @@ public class MatrixOps {
 		}
 		return result;
 	}
-
 	
 	public static double [][] scalarPow(double [][] matrix, double power) {
 		double [][] result = new double[matrix.length][matrix[0].length];
@@ -1037,19 +1035,19 @@ public class MatrixOps {
 		}
 		return result;
 	}
-	
+
 	// Unit Tested
-		public static double [] concatenate(double [] v1,double [] v2) {
-			double [] result = new double[v1.length+v2.length];
-			int index = 0;
-			for (int i = 0; i < v1.length; i++, index++) {
-				result[index] = v1[index];
-			}
-			for (int i = 0; i < v2.length; i++, index++) {
-				result[index] = v2[i];
-			}
-			return result;
+	public static double[] concatenate(double[] v1, double[] v2) {
+		double[] result = new double[v1.length + v2.length];
+		int index = 0;
+		for (int i = 0; i < v1.length; i++, index++) {
+			result[index] = v1[index];
 		}
+		for (int i = 0; i < v2.length; i++, index++) {
+			result[index] = v2[i];
+		}
+		return result;
+	}
 
 	// Unit Tested
 	public static double [][] concatenate(double [][] m1,double[][] m2) {
@@ -1182,7 +1180,6 @@ public class MatrixOps {
 			}
 		}
 	}
-
 
 	public static void assignAtIndex(double[][] num, int[] range, int[] range1, double value) {
 		for (int j = 0; j < range.length; j++) {

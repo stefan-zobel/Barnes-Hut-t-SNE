@@ -8,8 +8,6 @@ import java.util.List;
 import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 
-import com.jujutsu.utils.MatrixOps;
-
 public class ParallelBHTsne extends BHTSne {
 
 	/**
@@ -22,7 +20,6 @@ public class ParallelBHTsne extends BHTSne {
 	double[][] neg_f = null;
 	double[][] buff = null;
 
-	//@Override
 	void updateGradient(int N, int no_dims, double[] Y, double momentum, double eta, double[] dY, double[] uY,
 			double[] gains) {
 		IntStream.range(0, N * no_dims).parallel().forEach(i -> {
@@ -115,10 +112,6 @@ public class ParallelBHTsne extends BHTSne {
 		if(perplexity > K) System.out.println("Perplexity should be lower than K!");
 
 		// Allocate the memory we need
-		/**_row_P = (int*)    malloc((N + 1) * sizeof(int));
-		 *_col_P = (int*)    calloc(N * K, sizeof(int));
-		 *_val_P = (double*) calloc(N * K, sizeof(double));
-			    if(*_row_P == null || *_col_P == null || *_val_P == null) { Rcpp::stop("Memory allocation failed!\n"); }*/
 		int [] row_P = _row_P;
 		int [] col_P = _col_P;
 		double [] val_P = _val_P;
@@ -129,11 +122,7 @@ public class ParallelBHTsne extends BHTSne {
 
 		// Build ball tree on data set
 		ParallelVpTree<DataPoint> tree = new ParallelVpTree<DataPoint>(distance);
-		final DataPoint [] obj_X = new DataPoint [N];
-		for(int n = 0; n < N; n++) {
-			double [] row = MatrixOps.extractRowFromFlatMatrix(X,n,D);
-			obj_X[n] = new DataPoint(D, n, row);
-		}
+		final DataPoint [] obj_X = rowViews(X, N, D);
 		tree.create(obj_X);
 
 		// Loop over all points to find nearest neighbors
@@ -204,5 +193,4 @@ public class ParallelBHTsne extends BHTSne {
 			}
 		}
 	}
-
 }

@@ -21,6 +21,8 @@ public class TSneTest {
             tsne = new BHTSne();
         }
         TSneConfiguration config = TSneUtils.buildConfig(X, 2, initial_dims, perplexity, 1000);
+
+        @SuppressWarnings("unused")
         double[][] Y = tsne.tsne(config);
 
         // Plot Y or save Y to file and plot with some other tool such as for

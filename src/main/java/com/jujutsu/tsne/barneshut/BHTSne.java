@@ -526,6 +526,7 @@ public class BHTSne implements BarnesHutTSne {
 			}
 		}
 	}
+
 	/**
 	 * Kullback-Leibler divergence between the sparse input similarities and the current embedding,
 	 * which is the t-SNE cost function.
@@ -571,6 +572,28 @@ public class BHTSne implements BarnesHutTSne {
 		return C;
 	}
 
+	/**
+	 * The {@code N} rows of the flat {@code N x D} data matrix, as the points of the ball tree.
+	 * <p>
+	 * The rows are not copied. They used to be copied twice per point - once out of {@code X} by
+	 * {@code MatrixOps.extractRowFromFlatMatrix} and once more by the {@link DataPoint} constructor,
+	 * the first copy being garbage before the loop reached the next point. That was 17 MB of transient
+	 * allocation for 20 000 points of 50 dimensions and 63 MB for 5000 points of 784. Nothing writes
+	 * to a point's coordinates anywhere in the tree, so neither copy protected anything.
+	 *
+	 * @param X the data, row major, at least {@code N * D} elements
+	 * @param N the number of points
+	 * @param D the dimensionality
+	 * @return one point per row, in row order
+	 */
+	static DataPoint [] rowViews(double [] X, int N, int D) {
+		final DataPoint [] obj_X = new DataPoint [N];
+		for(int n = 0; n < N; n++) {
+			obj_X[n] = new DataPoint(X, n * D, D, n);
+		}
+		return obj_X;
+	}
+
 	// Compute input similarities with a fixed perplexity using ball trees
 	void computeGaussianPerplexity(double [] X, int N, int D, int [] _row_P, int [] _col_P, double [] _val_P, double perplexity, int K) {
 		if(perplexity > K) System.out.println("Perplexity should be lower than K!");
@@ -590,23 +613,8 @@ public class BHTSne implements BarnesHutTSne {
 
 		// Build ball tree on data set
 		VpTree<DataPoint> tree = new VpTree<DataPoint>(distance);
-		final DataPoint [] obj_X = new DataPoint [N];
-		for(int n = 0; n < N; n++) {
-			double [] row = MatrixOps.extractRowFromFlatMatrix(X,n,D);
-			obj_X[n] = new DataPoint(D, n, row);
-		}
+		final DataPoint [] obj_X = rowViews(X, N, D);
 		tree.create(obj_X);
-
-		// VERIFIED THAT TREES LOOK THE SAME
-		//System.out.println("Created Tree is: ");
-		//			AdditionalInfoProvider pp = new AdditionalInfoProvider() {			
-		//				@Override
-		//				public String provideInfo(Node node) {
-		//					return "" + obj_X[node.index].index();
-		//				}
-		//			};
-		//			TreePrinter printer = new TreePrinter(pp);
-		//			printer.printTreeHorizontal(tree.getRoot());
 
 		// Loop over all points to find nearest neighbors
 		System.out.println("Building tree...");
@@ -618,7 +626,6 @@ public class BHTSne implements BarnesHutTSne {
 			if(n % 10000 == 0) System.out.printf(" - point %d of %d\n", n, N);
 
 			// Find nearest neighbors
-			//System.out.println("Looking at: " + obj_X.get(n).index());
 			tree.search(obj_X[n], K + 1, indices, distances);
 
 			// Initialize some variables for binary search

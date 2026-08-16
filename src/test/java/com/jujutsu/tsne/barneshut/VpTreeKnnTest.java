@@ -10,6 +10,8 @@ import java.util.Random;
 
 import org.junit.Test;
 
+import com.jujutsu.utils.MatrixOps;
+
 /**
  * Verifies the k nearest neighbour search of the vantage point tree against a brute force reference.
  * <p>
@@ -17,6 +19,10 @@ import org.junit.Test;
  * differs from run to run and the result cannot be compared against a recorded golden output. What
  * has to hold regardless of the shape is that the search returns exactly the neighbours a brute force
  * scan finds, which is what these tests check.
+ * <p>
+ * Every check runs twice, once over points that own their row and once over points that are views of
+ * one flat matrix, which is how {@link BHTSne#rowViews} builds them. Both sources produce the same
+ * numbers, so both runs have to produce the same neighbours.
  */
 public class VpTreeKnnTest {
 
@@ -25,17 +31,30 @@ public class VpTreeKnnTest {
 	private static final int K = 20;
 	private static final double TOLERANCE = 1e-12;
 
-	private static DataPoint[] randomPoints() {
+	private static double[] randomFlatMatrix() {
 		final Random random = new Random(20260815L);
+		final double[] x = new double[N * D];
+		for (int n = 0; n < N; n++) {
+			for (int d = 0; d < D; d++) {
+				x[n * D + d] = random.nextGaussian() + (n % 5) * 2.5;
+			}
+		}
+		return x;
+	}
+
+	/** points that own their row, as callers outside the ball tree build them */
+	private static DataPoint[] owningPoints() {
+		final double[] x = randomFlatMatrix();
 		final DataPoint[] points = new DataPoint[N];
 		for (int n = 0; n < N; n++) {
-			final double[] x = new double[D];
-			for (int d = 0; d < D; d++) {
-				x[d] = random.nextGaussian() + (n % 5) * 2.5;
-			}
-			points[n] = new DataPoint(D, n, x);
+			points[n] = new DataPoint(D, n, MatrixOps.extractRowFromFlatMatrix(x, n, D));
 		}
 		return points;
+	}
+
+	/** the same points as views of one flat matrix, as the perplexity phase builds them */
+	private static DataPoint[] viewPoints() {
+		return BHTSne.rowViews(randomFlatMatrix(), N, D);
 	}
 
 	/** Reference: the K + 1 nearest neighbours of {@code target}, the point itself first. */
@@ -58,7 +77,25 @@ public class VpTreeKnnTest {
 
 	@Test
 	public void searchFindsTheSameNeighboursAsABruteForceScan() {
-		final DataPoint[] points = randomPoints();
+		assertSearchMatchesBruteForce(owningPoints());
+	}
+
+	@Test
+	public void searchOverViewsOfAFlatMatrixFindsTheSameNeighbours() {
+		assertSearchMatchesBruteForce(viewPoints());
+	}
+
+	@Test
+	public void searchMultipleFindsTheSameNeighboursAsABruteForceScan() {
+		assertSearchMultipleMatchesBruteForce(owningPoints());
+	}
+
+	@Test
+	public void searchMultipleOverViewsOfAFlatMatrixFindsTheSameNeighbours() {
+		assertSearchMultipleMatchesBruteForce(viewPoints());
+	}
+
+	private static void assertSearchMatchesBruteForce(final DataPoint[] points) {
 		final VpTree<DataPoint> tree = new VpTree<>(new EuclideanDistance());
 		tree.create(points);
 
@@ -83,9 +120,7 @@ public class VpTreeKnnTest {
 		}
 	}
 
-	@Test
-	public void searchMultipleFindsTheSameNeighboursAsABruteForceScan() {
-		final DataPoint[] points = randomPoints();
+	private static void assertSearchMultipleMatchesBruteForce(final DataPoint[] points) {
 		final ParallelVpTree<DataPoint> tree = new ParallelVpTree<>(new EuclideanDistance());
 		tree.create(points);
 

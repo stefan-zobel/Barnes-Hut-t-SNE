@@ -21,6 +21,14 @@ public class VpTree<StorageType> {
 		this.distance = distance;
 	}
 
+	/**
+	 * Builds the tree over the given points. The points themselves are not copied, only the array
+	 * holding them: building permutes it, and the callers keep using their own array to look up the
+	 * search target of point {@code n}. That is {@code N} references, not {@code N} rows - the points
+	 * are views of one flat matrix, see {@link DataPoint}.
+	 *
+	 * @param items the points, one per index of the data set
+	 */
 	public void create(DataPoint [] items) {
 		_items = items.clone();
 		_distances = new double[_items.length];
@@ -63,46 +71,6 @@ public class VpTree<StorageType> {
 		heap.drainAscending(_items, outNeighbors, outDistances);
 		return found;
 	}
-	
-// Left for debugging...	
-//	public List<TreeSearchResult> searchMultipleSerial(ParallelVpTree<StorageType> tree, DataPoint [] targets, int k) {
-//		VpTree<StorageType>.Node node = tree.getRoot();
-//		
-//		List<TreeSearchResult> results =  new ArrayList<>(targets.length);
-//		for(int n=0; n < targets.length; n++) {
-//			DataPoint target = targets[n];
-//			List<DataPoint> indices = new ArrayList<>();
-//			List<Double> distances = new ArrayList<>();
-//			PriorityQueue<HeapItem> heap = new PriorityQueue<HeapItem>(k,new Comparator<HeapItem>() {
-//				@Override
-//				public int compare(HeapItem o1, HeapItem o2) {
-//					return -1 * o1.compareTo(o2);
-//				}
-//			}); 
-//
-//			double tau = Double.MAX_VALUE;
-//			// Perform the search
-//			node.search(node, target, k, heap, tau);
-//
-//			// Gather final results
-//			while(!heap.isEmpty()) {
-//				DataPoint item = _items[heap.peek().index];
-//				indices.add(item);
-//				double pdist = heap.peek().dist;
-//				distances.add(pdist);
-//				heap.remove();
-//			}
-//			
-//			// Results are in reverse order 
-//			Collections.reverse(indices);
-//			Collections.reverse(distances);
-//
-//			results.add(new TreeSearchResult(indices, distances,n));
-//		}
-//		
-//		return results;
-//	}
-
 
 	// Function that (recursively) fills the tree
 	public Node buildFromPoints( int lower, int upper )
@@ -122,7 +90,6 @@ public class VpTree<StorageType> {
 
 			// Choose an arbitrary point and move it to the start
 			int i = (int) (ThreadLocalRandom.current().nextDouble() * (upper - lower - 1)) + lower;
-			//int i = (int) (.8 * (upper - lower - 1)) + lower;
 			if(lower != i) swap(_items, lower, i);
 
 			// Distance to the vantage point, evaluated once per item rather than once per comparison
@@ -323,27 +290,21 @@ public class VpTree<StorageType> {
 
 			// If the target lies within the radius of ball
 			if(dist < node.threshold) {
-				// System.out.println("Within...");
 				if(dist - _tau <= node.threshold) {         // if there can still be neighbors inside the ball, recursively search left child first
-					// System.out.println("Left...");
 					_tau = search(node.left, target, k, heap, _tau);
 				}
 
 				if(dist + _tau >= node.threshold) {         // if there can still be neighbors outside the ball, recursively search right child
-					// System.out.println("Right...");
 					_tau = search(node.right, target, k, heap, _tau);
 				}
 
 				// If the target lies outside the radius of the ball
 			} else {
-				// System.out.println("Outside...");
 				if(dist + _tau >= node.threshold) {         // if there can still be neighbors outside the ball, recursively search right child first
-					// System.out.println("Right...");
 					_tau = search(node.right, target, k, heap, _tau);
 				}
 
 				if (dist - _tau <= node.threshold) {         // if there can still be neighbors inside the ball, recursively search left child
-					// System.out.println("Left...");
 					_tau = search(node.left, target, k, heap, _tau);
 				}
 			}
@@ -364,7 +325,7 @@ public class VpTree<StorageType> {
 		for(int i = 0; i < lvl; i++) {
 			prefix += "    ";
 		}
-		//System.out.println("Tree with:\n\tchildren:" + no_children);
+
 		if(node == null) {
 			System.out.println(prefix + "Empty node");
 		} else {

@@ -108,7 +108,6 @@ public class TreePrinter {
 		return true;
 	}
 
-
 	public void printTreeHorizontal(Node node) {
 		if (node.getRight() != null) {
 			printTree(node.getRight(), true, "");
@@ -118,6 +117,7 @@ public class TreePrinter {
 			printTree(node.getLeft(), false, "");
 		}
 	}
+
 	private void printNodeValue(Node node) {
 		if (node == null) {
 			System.out.print("<null>");
@@ -129,7 +129,8 @@ public class TreePrinter {
 		}
 		System.out.print('\n');
 	}
-	// use string and not stringbuffer on purpose as we need to change the indent at each recursion
+
+	// use String and not StringBuffer on purpose as we need to change the indent at each recursion
 	private void printTree(Node node, boolean isRight, String indent) {
 		if (node.getRight() != null) {
 			printTree(node.getRight(), true, indent + (isRight ? "        " : " |      "));
@@ -146,5 +147,4 @@ public class TreePrinter {
 			printTree(node.getLeft(), false, indent + (isRight ? " |      " : "        "));
 		}
 	}
-
 }

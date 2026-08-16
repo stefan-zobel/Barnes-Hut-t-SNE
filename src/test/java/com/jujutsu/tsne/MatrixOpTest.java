@@ -16,9 +16,6 @@ public class MatrixOpTest {
 
     @Test
     public void testPCA() {
-        //double [][] nmatrix = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/datasets/nist_pca_2.txt"), " ");
-        // System.out.println(ArrayString.printDoubleArray(X));
-        //double [][] nmatrix = TSneDemo.nistReadStringDouble(ASCIIFile.read(new File("src/main/resources/datasets/mnist2500_X.txt")));
         double [][] matrix = MatrixOps.rnorm(200,7);
         System.out.println(MatrixOps.doubleArrayToPrintString(matrix));
         JacobiPCA pca = new JacobiPCA();

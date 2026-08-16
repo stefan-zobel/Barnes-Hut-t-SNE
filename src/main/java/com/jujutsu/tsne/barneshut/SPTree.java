@@ -194,7 +194,6 @@ public class SPTree {
 		for(int i = 0; i < no_children; i++) {
 			int div = 1;
 			for(int d = 0; d < dimension; d++) {
-				//if(i == 3) { System.out.print("i = " + i + ", div = " + div + " => " + "exp = " + ((i / div) % 2) + " "); }
 				new_width[d] = .5 * boundary.getWidth(d);
 				if((i / div) % 2 == 1) new_corner[d] = boundary.getCorner(d) - .5 * boundary.getWidth(d);
 				else                   new_corner[d] = boundary.getCorner(d) + .5 * boundary.getWidth(d);
@@ -277,8 +276,6 @@ public class SPTree {
     double computeNonEdgeForces(int point_index, double theta, double[] neg_f, 
         double buff[], double[] sum_Q)
     {
-        //double[] buff = new double[dimension];
-
         // Make sure that we spend no time on empty nodes or self-interactions
         if (cum_size == 0 || (is_leaf && size == 1 && index[0] == point_index))
             return 0.0;
@@ -358,7 +355,7 @@ public class SPTree {
 		for(int i = 0; i < lvl; i++) {
 			prefix += "    ";
 		}
-		//System.out.println("Tree with:\n\tchildren:" + no_children);
+
 		if(cum_size == 0) {
 			System.out.printf(prefix + "Empty node\n");
 			return;
@@ -437,5 +434,4 @@ public class SPTree {
 			return true;
 		}
 	}
-
 }

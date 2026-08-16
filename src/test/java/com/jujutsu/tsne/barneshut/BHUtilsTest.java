@@ -40,7 +40,6 @@ public class BHUtilsTest {
 		int [] array = {5, 6, 4, 3, 2, 6, 7, 9, 3};
 		int pivot = 4;
 		VpTree.nth_element(array, 0, pivot, 9);
-		//System.out.println("Items:" + Arrays.toString(array));
 		assertEquals(5,array[pivot]);
 	}
 
@@ -49,7 +48,6 @@ public class BHUtilsTest {
 		int [] array = {5, 6, 4, 3, 2, 6, 7, 9, 3};
 		int pivot = 1;
 		VpTree.nth_element(array, 0, pivot, 7);
-		//System.out.println("Items:" + Arrays.toString(array));
 		assertEquals(3,array[pivot]);
 	}
 	
@@ -58,7 +56,6 @@ public class BHUtilsTest {
 		int [] array = {5, 6, 4, 3, 2, 6, 7, 9, 3};
 		int pivot = 1;
 		VpTree.nth_element(array, 0, pivot, 2);
-		//System.out.println("Items:" + Arrays.toString(array));
 		assertEquals(6,array[pivot]);
 	}
 	
@@ -67,7 +64,6 @@ public class BHUtilsTest {
 		int [] array = {5, 6, 4, 3, 2, 6, 7, 9, 3};
 		int pivot = 4;
 		VpTree.nth_element(array, 0, pivot, 9);
-		//System.out.println("Items:" + Arrays.toString(array));
 		assertEquals(5,array[pivot]);
 	}
 	
@@ -76,7 +72,6 @@ public class BHUtilsTest {
 		int [] array = {5, 6, 4, 3, 2, 6, 7, 9, 3};
 		int pivot = 2;
 		VpTree.nth_element(array, 0, pivot, 3);
-		//System.out.println("Items:" + Arrays.toString(array));
 		assertEquals(6,array[pivot]);
 	}
 
@@ -85,7 +80,6 @@ public class BHUtilsTest {
 		int [] array = {5, 6, 4, 3, 2, 6, 7, 9, 3};
 		int pivot = 6;
 		VpTree.nth_element(array, 0, pivot, 8);
-		//System.out.println("Items:" + Arrays.toString(array));
 		assertEquals(7,array[pivot]);
 	}
 	
@@ -94,7 +88,6 @@ public class BHUtilsTest {
 		int [] array = {5, 6, 4, 3, 2, 6, 7, 9, 3};
 		int pivot = 6;
 		VpTree.nth_element(array, 5, pivot, 8);
-		//System.out.println("Items:" + Arrays.toString(array));
 		assertEquals(7,array[pivot]);
 	}
 
@@ -107,15 +100,13 @@ public class BHUtilsTest {
 		for (int i = 0; i < array.length; i++) {
 			heap.add(array[i]);			
 		}
-//		System.out.println(heap);
+
 		int cnt = 0;		
 		int [] result = new int[array.length]; 
 		while(!heap.isEmpty()) {
 			result[cnt++] = heap.remove();
-//			System.out.print(heap.remove() + ", ");
 		}
 		int [] expected = {9, 7, 6, 6, 5, 4, 3, 3, 2};
 		assertArrayEquals(expected, result);
 	}
-	
 }
