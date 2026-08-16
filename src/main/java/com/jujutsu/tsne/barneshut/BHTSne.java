@@ -343,9 +343,12 @@ public class BHTSne implements BarnesHutTSne {
 	private double [][] runInternal(TSneConfiguration parameterObject) {
 		int D = parameterObject.getXStartDim();
 		double[][] Xin = parameterObject.getXin();
-		boolean exact = (parameterObject.getTheta() == .0);
 
-		if(exact) throw new IllegalArgumentException("The Barnes Hut implementation does not support exact inference yet (theta==0.0), if you want exact t-SNE please use one of the standard t-SNE implementations (FastTSne for instance)");
+		// theta == 0.0 asks for the exact O(N^2) formulation, which this class does not implement.
+		if(parameterObject.getTheta() == .0) {
+			throw new IllegalArgumentException(
+					"theta == 0.0 requests exact t-SNE, which the Barnes-Hut implementation does not provide. Use a positive theta; 0.5 is the usual choice.");
+		}
 
 		int N = parameterObject.getNrRows();
 		int no_dims = parameterObject.getOutputDims();
@@ -379,7 +382,6 @@ public class BHTSne implements BarnesHutTSne {
 			}
 		}
 		System.out.println("X:Shape is = " + N + " x " + D);
-		// Determine whether we are using an exact algorithm
 		double perplexity = parameterObject.getPerplexity();
 		if(N - 1 < 3 * perplexity) { throw new IllegalArgumentException("Perplexity too large for the number of data points!\n"); }
 		System.out.printf("Using no_dims = %d, perplexity = %f, and theta = %f\n", no_dims, perplexity, parameterObject.getTheta());
@@ -408,76 +410,38 @@ public class BHTSne implements BarnesHutTSne {
 
 		//for(int i = 0; i < N * D; i++) X[i] /= max_X;
 
-		double [] P = null;
 		int K  = (int) (3 * perplexity);
 		int [] row_P = new int[N+1];
 		int [] col_P = new int[N*K];
 		double [] val_P = new double[N*K];
 
-		// Compute input similarities for exact t-SNE
-		if(exact) {
+		// Compute asymmetric pairwise input similarities
+		computeGaussianPerplexity(X, N, D, row_P, col_P, val_P, perplexity, K);
 
-			// Compute similarities
-			P = new double[N * N];
-			computeGaussianPerplexity(X, N, D, P, perplexity);
+		// Symmetrize input similarities
+		SymResult res = symmetrizeMatrix(row_P, col_P, val_P, N);
+		row_P = res.sym_row_P;
+		col_P = res.sym_col_P;
+		val_P = res.sym_val_P;
 
-			// Symmetrize input similarities
-			System.out.println("Symmetrizing...");
-			int nN = 0;
-			for(int n = 0; n < N; n++) {
-				int mN = 0;
-				for(int m = n + 1; m < N; m++) {
-					P[nN + m] += P[mN + n];
-					P[mN + n]  = P[nN + m];
-					mN += N;
-				}
-				nN += N;
-			}
-			double sum_P = .0;
-			for(int i = 0; i < N * N; i++) sum_P += P[i];
-			for(int i = 0; i < N * N; i++) P[i] /= sum_P;
-		}
+		double sum_P = .0;
+		for(int i = 0; i < row_P[N]; i++) sum_P += val_P[i];
+		for(int i = 0; i < row_P[N]; i++) val_P[i] /= sum_P;
 
-		// Compute input similarities for approximate t-SNE
-		else {
-
-			// Compute asymmetric pairwise input similarities
-			computeGaussianPerplexity(X, N, D, row_P, col_P, val_P, perplexity, K);
-
-			double [] val_P_print = new double[100];
-			int [] col_P_print = new int[100];
-			for (int i = 0; i < val_P_print.length; i++) {
-				val_P_print[i] = val_P[i];
-				col_P_print[i] = col_P[i];
-			}
-
-			// Symmetrize input similarities
-			SymResult res = symmetrizeMatrix(row_P, col_P, val_P, N);
-			row_P = res.sym_row_P;
-			col_P = res.sym_col_P;
-			val_P = res.sym_val_P;
-
-			double sum_P = .0;
-			for(int i = 0; i < row_P[N]; i++) sum_P += val_P[i];
-			for(int i = 0; i < row_P[N]; i++) val_P[i] /= sum_P;
-		}
 		long end = System.currentTimeMillis();
 
 		// Lie about the P-values
-		if(exact) { for(int i = 0; i < N * N; i++)        P[i] *= 12.0; }
-		else {      for(int i = 0; i < row_P[N]; i++) val_P[i] *= 12.0; }
+		for(int i = 0; i < row_P[N]; i++) val_P[i] *= 12.0;
 
 		// Perform main training loop
-		if(exact) System.out.printf("Done in %4.2f seconds!\nLearning embedding...\n", (end - start) / 1000.0);
-		else System.out.printf("Done in %4.2f seconds (sparsity = %f)!\nLearning embedding...\n", (end - start) / 1000.0, (double) row_P[N] / ((double) N * (double) N));
+		System.out.printf("Done in %4.2f seconds (sparsity = %f)!\nLearning embedding...\n", (end - start) / 1000.0, (double) row_P[N] / ((double) N * (double) N));
 		start = System.currentTimeMillis();
 
 		TSneProgress.reset(TASK_GRADIENT_DESCENT, parameterObject.getMaxIter());
 		for(int iter = 0; iter < parameterObject.getMaxIter() && !abort; iter++) {
 
-			if(exact) computeExactGradient(P, Y, N, no_dims, dY);
 			// Compute (approximate) gradient
-			else computeGradient(row_P, col_P, val_P, Y, N, no_dims, dY, parameterObject.getTheta(), iter);
+			computeGradient(row_P, col_P, val_P, Y, N, no_dims, dY, parameterObject.getTheta(), iter);
 
 			// Print out progress. This runs before the update so that the cost can reuse the
 			// normalization the gradient step has just computed for exactly this embedding, instead
@@ -486,10 +450,8 @@ public class BHTSne implements BarnesHutTSne {
 			if ( ((iter > 0 && iter % 50 == 0) || iter == parameterObject.getMaxIter() - 1) && !parameterObject.silent() ) {
 				String err_string = "not_calculated";
 				if(parameterObject.printError()) {
-					double C = .0;
-					if(exact) C = evaluateError(P, Y, N, no_dims);
-					else      C = klDivergence(row_P, col_P, val_P, Y, N, no_dims, lastSumQ);  // doing approximate computation here!
-					err_string = "" + C;
+					// approximate, see klDivergence
+					err_string = "" + klDivergence(row_P, col_P, val_P, Y, N, no_dims, lastSumQ);
 				}
 				TSneProgress.setMessage("Err: " + err_string);
 			}
@@ -501,8 +463,7 @@ public class BHTSne implements BarnesHutTSne {
 
 			// Stop lying about the P-values after a while, and switch momentum
 			if(iter == stop_lying_iter) {
-				if(exact) { for(int i = 0; i < N * N; i++)        P[i] /= 12.0; }
-				else      { for(int i = 0; i < row_P[N]; i++) val_P[i] /= 12.0; }
+				for(int i = 0; i < row_P[N]; i++) val_P[i] /= 12.0;
 			}
 			if(iter == mom_switch_iter) momentum = final_momentum;
 
@@ -564,89 +525,13 @@ public class BHTSne implements BarnesHutTSne {
 			}
 		}
 	}
-	// Compute gradient of the t-SNE cost function (exact)
-	void computeExactGradient(double [] P, double [] Y, int N, int D, double [] dC) {
-
-		// Make sure the current gradient contains zeros
-		for(int i = 0; i < N * D; i++) dC[i] = 0.0;
-
-		// Compute the squared Euclidean distance matrix
-		double [] DD = new double[N * N];
-		computeSquaredEuclideanDistance(Y, N, D, DD);
-
-		// Compute Q-matrix and normalization sum
-		double [] Q    = new double[N * N];
-		double sum_Q = .0;
-		int nN = 0;
-		for(int n = 0; n < N; n++) {
-			for(int m = 0; m < N; m++) {
-				if(n != m) {
-					Q[nN + m] = 1 / (1 + DD[nN + m]);
-					sum_Q += Q[nN + m];
-				}
-			}
-			nN += N;
-		}
-
-		// Perform the computation of the gradient
-		nN = 0;
-		int nD = 0;
-		for(int n = 0; n < N; n++) {
-			int mD = 0;
-			for(int m = 0; m < N; m++) {
-				if(n != m) {
-					double mult = (P[nN + m] - (Q[nN + m] / sum_Q)) * Q[nN + m];
-					for(int d = 0; d < D; d++) {
-						dC[nD + d] += (Y[nD + d] - Y[mD + d]) * mult;
-					}
-				}
-				mD += D;
-			}
-			nN += N;
-			nD += D;
-		}
-	}
-
-	// Evaluate t-SNE cost function (exactly)
-	double evaluateError(double [] P, double [] Y, int N, int D) {
-
-		// Compute the squared Euclidean distance matrix
-		double [] DD = new double[N * N];
-		double [] Q = new double[N * N];
-		computeSquaredEuclideanDistance(Y, N, D, DD);
-
-		// Compute Q-matrix and normalization sum
-		int nN = 0;
-		double sum_Q = Double.MIN_VALUE;
-		for(int n = 0; n < N; n++) {
-			for(int m = 0; m < N; m++) {
-				if(n != m) {
-					Q[nN + m] = 1 / (1 + DD[nN + m]);
-					sum_Q += Q[nN + m];
-				}
-				else Q[nN + m] = Double.MIN_VALUE;
-			}
-			nN += N;
-		}
-		for(int i = 0; i < N * N; i++) Q[i] /= sum_Q;
-
-		// Sum t-SNE error
-		double C = .0;
-		for(int n = 0; n < N * N; n++) {
-			C += P[n] * log((P[n] + Double.MIN_VALUE) / (Q[n] + Double.MIN_VALUE));
-		}
-
-		return C;
-	}
-
 	/**
 	 * Kullback-Leibler divergence between the sparse input similarities and the current embedding,
 	 * which is the t-SNE cost function.
 	 * <p>
-	 * Unlike {@link #evaluateError(int[], int[], double[], double[], int, int, double)} this builds no
-	 * space partitioning tree of its own: it takes the normalization term that the gradient step of
-	 * the same iteration has already computed from exactly this embedding, so only the sum over the
-	 * edges of the sparse similarity matrix is left to do.
+	 * This builds no space partitioning tree of its own: it takes the normalization term that the
+	 * gradient step of the same iteration has already computed from exactly this embedding, so only
+	 * the sum over the edges of the sparse similarity matrix is left to do.
 	 *
 	 * @param row_P row offsets of the sparse input similarities
 	 * @param col_P column indices of the sparse input similarities
@@ -683,72 +568,6 @@ public class BHTSne implements BarnesHutTSne {
 			C += val_P[i] * log((val_P[i] + Double.MIN_VALUE) / (Q + Double.MIN_VALUE));
 		}
 		return C;
-	}
-
-	// Compute input similarities with a fixed perplexity
-	void computeGaussianPerplexity(double [] X, int N, int D, double [] P, double perplexity) {
-
-		// Compute the squared Euclidean distance matrix
-		double [] DD = new double[N * N];
-		computeSquaredEuclideanDistance(X, N, D, DD);
-
-		// Compute the Gaussian kernel row by row
-		int nN = 0;
-		for(int n = 0; n < N; n++) {
-
-			// Initialize some variables
-			boolean found = false;
-			double beta = 1.0;
-			double min_beta = -Double.MAX_VALUE;
-			double max_beta =  Double.MAX_VALUE;
-			double tol = 1e-5;
-			double sum_P = Double.MIN_VALUE;
-
-			// Iterate until we found a good perplexity
-			int iter = 0;
-			while(!found && iter < 200) {
-
-				// Compute Gaussian kernel row
-				for(int m = 0; m < N; m++) P[nN + m] = exp(-beta * DD[nN + m]);
-				P[nN + n] = Double.MIN_VALUE;
-
-				// Compute entropy of current row
-				sum_P = Double.MIN_VALUE;
-				for(int m = 0; m < N; m++) sum_P += P[nN + m];
-				double H = 0.0;
-				for(int m = 0; m < N; m++) H += beta * (DD[nN + m] * P[nN + m]);
-				H = (H / sum_P) + log(sum_P);
-
-				// Evaluate whether the entropy is within the tolerance level
-				double Hdiff = H - log(perplexity);
-				if(Hdiff < tol && -Hdiff < tol) {
-					found = true;
-				}
-				else {
-					if(Hdiff > 0) {
-						min_beta = beta;
-						if(max_beta == Double.MAX_VALUE || max_beta == -Double.MAX_VALUE)
-							beta *= 2.0;
-						else
-							beta = (beta + max_beta) / 2.0;
-					}
-					else {
-						max_beta = beta;
-						if(min_beta == -Double.MAX_VALUE || min_beta == Double.MAX_VALUE)
-							beta /= 2.0;
-						else
-							beta = (beta + min_beta) / 2.0;
-					}
-				}
-
-				// Update iteration counter
-				iter++;
-			}
-
-			// Row normalize P
-			for(int m = 0; m < N; m++) P[nN + m] /= sum_P;
-			nN += N;
-		}
 	}
 
 	// Compute input similarities with a fixed perplexity using ball trees
@@ -1127,38 +946,6 @@ public class BHTSne implements BarnesHutTSne {
 
 		return new SymResult(sym_row_P, sym_col_P, sym_val_P);
 	}
-
-	// Compute squared Euclidean distance matrix (using BLAS)
-	void computeSquaredEuclideanDistance(double [] X, int N, int D, double [] DD) {
-		double [] dataSums = new double[N];
-		for(int n = 0; n < N; n++) {
-			for(int d = 0; d < D; d++) {
-				dataSums[n] += (X[n * D + d] * X[n * D + d]);
-			}
-		}
-		for(int n = 0; n < N; n++) {
-			for(int m = 0; m < N; m++) {
-				DD[n * N + m] = dataSums[n] + dataSums[m];
-			}
-		}
-		//double a1 = -2.0;
-		//double a2 = 1.0;
-		//dgemm(String arg0, String arg1, int arg2, int arg3, int arg4, double arg5, double[] arg6, int arg7, int arg8, double[] arg9, int arg10, int arg11, double arg12, double[] arg13, int arg14, int arg15);
-		//  org.netlib.blas.Dgemm.dgemm("T", "N", N, N, D, a1, X, D, X, D, a2, DD, N);
-
-		/* DGEMM - perform one of the matrix-matrix operations    */
-		/* C := alpha*op( A )*op( B ) + beta*C */
-		/* BLAS_extern void
-		 * R BLAS declaration:
-		    F77_NAME(dgemm)(const char *transa, const char *transb, const int *m,
-		    		const int *n, const int *k, const double *alpha,
-		    		const double *a, const int *lda,
-		    		const double *b, const int *ldb,
-		    		const double *beta, double *c, const int *ldc);*/
-
-		//org.netlib.blas.Dgemm.dgemm
-	}
-
 
 	// Makes data zero-mean
 	void zeroMean(double [] X, int N, int D) {
