@@ -13,67 +13,96 @@ import java.util.List;
  */
 public class TreeSearchResult {
 
-	private final int n;
-	private final DataPoint[] neighbors;
-	private final double[] distances;
+    private final int n;
+    private final DataPoint[] neighbors;
+    private final double[] distances;
 
-	/**
-	 * @param neighbors the neighbours, nearest first, element 0 being the target itself
-	 * @param distances their distances to the target, in the same order
-	 * @param n index of the search target
-	 */
-	public TreeSearchResult(DataPoint[] neighbors, double[] distances, int n) {
-		this.neighbors = neighbors;
-		this.distances = distances;
-		this.n = n;
-	}
+    /**
+     * @param neighbors the neighbours, nearest first, element 0 being the target itself
+     * @param distances their distances to the target, in the same order
+     * @param n index of the search target
+     */
+    public TreeSearchResult(DataPoint[] neighbors, double[] distances, int n) {
+        this.neighbors = neighbors;
+        this.distances = distances;
+        this.n = n;
+    }
 
-	/**
-	 * @return the neighbours, nearest first; not copied
-	 */
-	public DataPoint[] getNeighbors() {
-		return neighbors;
-	}
+    /**
+     * The signature this class was constructed with before the neighbours and their distances moved
+     * into arrays. It is kept so that the change stays binary and source compatible, and it delegates:
+     * both lists are read out into the arrays this instance stores.
+     * <p>
+     * Which is the one thing it cannot reproduce exactly. The old constructor kept the caller's list
+     * objects, so a later change to either of them showed through {@link #getIndices()} and
+     * {@link #getDistances()}. This one copies, so it does not.
+     *
+     * @param neighbors the neighbours, nearest first, element 0 being the target itself
+     * @param distances their distances to the target, in the same order
+     * @param n index of the search target
+     * @deprecated use {@link #TreeSearchResult(DataPoint[], double[], int)}, which neither boxes the
+     *             distances nor copies anything
+     */
+    @Deprecated
+    public TreeSearchResult(List<DataPoint> neighbors, List<Double> distances, int n) {
+        this(neighbors.toArray(new DataPoint[neighbors.size()]), unbox(distances), n);
+    }
 
-	/**
-	 * @return the distances of the neighbours, in the same order; not copied
-	 */
-	public double[] getNeighborDistances() {
-		return distances;
-	}
+    private static double[] unbox(List<Double> values) {
+        double[] unboxed = new double[values.size()];
+        int i = 0;
+        for (Double value : values) {
+            unboxed[i++] = value.doubleValue();
+        }
+        return unboxed;
+    }
 
-	/**
-	 * @return index of the search target
-	 */
-	public int getIndex() {
-		return n;
-	}
+    /**
+     * @return the neighbours, nearest first; not copied
+     */
+    public DataPoint[] getNeighbors() {
+        return neighbors;
+    }
 
-	/**
-	 * @return the neighbours as a list
-	 * @deprecated use {@link #getNeighbors()}, which does not wrap the array
-	 */
-	@Deprecated
-	public List<DataPoint> getIndices() {
-		return Arrays.asList(neighbors);
-	}
+    /**
+     * @return the distances of the neighbours, in the same order; not copied
+     */
+    public double[] getNeighborDistances() {
+        return distances;
+    }
 
-	/**
-	 * @return the distances as a list of boxed values
-	 * @deprecated use {@link #getNeighborDistances()}, which does not box
-	 */
-	@Deprecated
-	public List<Double> getDistances() {
-		return new AbstractList<Double>() {
-			@Override
-			public Double get(int index) {
-				return Double.valueOf(distances[index]);
-			}
+    /**
+     * @return index of the search target
+     */
+    public int getIndex() {
+        return n;
+    }
 
-			@Override
-			public int size() {
-				return distances.length;
-			}
-		};
-	}
+    /**
+     * @return the neighbours as a list
+     * @deprecated use {@link #getNeighbors()}, which does not wrap the array
+     */
+    @Deprecated
+    public List<DataPoint> getIndices() {
+        return Arrays.asList(neighbors);
+    }
+
+    /**
+     * @return the distances as a list of boxed values
+     * @deprecated use {@link #getNeighborDistances()}, which does not box
+     */
+    @Deprecated
+    public List<Double> getDistances() {
+        return new AbstractList<Double>() {
+            @Override
+            public Double get(int index) {
+                return Double.valueOf(distances[index]);
+            }
+
+            @Override
+            public int size() {
+                return distances.length;
+            }
+        };
+    }
 }
