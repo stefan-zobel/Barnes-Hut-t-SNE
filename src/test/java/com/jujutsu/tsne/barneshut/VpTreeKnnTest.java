@@ -20,9 +20,9 @@ import com.jujutsu.utils.MatrixOps;
  * has to hold regardless of the shape is that the search returns exactly the neighbours a brute force
  * scan finds, which is what these tests check.
  * <p>
- * Every check runs twice, once over points that own their row and once over points that are views of
- * one flat matrix, which is how {@link BHTSne#rowViews} builds them. Both sources produce the same
- * numbers, so both runs have to produce the same neighbours.
+ * Every check runs twice, once over points built from an extracted row and once over points built
+ * straight out of a flat matrix, which is how {@link BHTSne#rowPoints} builds them. Both sources
+ * produce the same numbers, so both runs have to produce the same neighbours.
  */
 public class VpTreeKnnTest {
 
@@ -42,8 +42,8 @@ public class VpTreeKnnTest {
         return x;
     }
 
-    /** points that own their row, as callers outside the ball tree build them */
-    private static DataPoint[] owningPoints() {
+    /** points built through an extracted row, as callers outside the ball tree build them */
+    private static DataPoint[] extractedRowPoints() {
         final double[] x = randomFlatMatrix();
         final DataPoint[] points = new DataPoint[N];
         for (int n = 0; n < N; n++) {
@@ -52,9 +52,9 @@ public class VpTreeKnnTest {
         return points;
     }
 
-    /** the same points as views of one flat matrix, as the perplexity phase builds them */
-    private static DataPoint[] viewPoints() {
-        return BHTSne.rowViews(randomFlatMatrix(), N, D);
+    /** the same points read straight out of one flat matrix, as the perplexity phase builds them */
+    private static DataPoint[] flatMatrixPoints() {
+        return BHTSne.rowPoints(randomFlatMatrix(), N, D);
     }
 
     /** Reference: the K + 1 nearest neighbours of {@code target}, the point itself first. */
@@ -77,22 +77,22 @@ public class VpTreeKnnTest {
 
     @Test
     public void searchFindsTheSameNeighboursAsABruteForceScan() {
-        assertSearchMatchesBruteForce(owningPoints());
+        assertSearchMatchesBruteForce(extractedRowPoints());
     }
 
     @Test
-    public void searchOverViewsOfAFlatMatrixFindsTheSameNeighbours() {
-        assertSearchMatchesBruteForce(viewPoints());
+    public void searchOverPointsFromAFlatMatrixFindsTheSameNeighbours() {
+        assertSearchMatchesBruteForce(flatMatrixPoints());
     }
 
     @Test
     public void searchMultipleFindsTheSameNeighboursAsABruteForceScan() {
-        assertSearchMultipleMatchesBruteForce(owningPoints());
+        assertSearchMultipleMatchesBruteForce(extractedRowPoints());
     }
 
     @Test
-    public void searchMultipleOverViewsOfAFlatMatrixFindsTheSameNeighbours() {
-        assertSearchMultipleMatchesBruteForce(viewPoints());
+    public void searchMultipleOverPointsFromAFlatMatrixFindsTheSameNeighbours() {
+        assertSearchMultipleMatchesBruteForce(flatMatrixPoints());
     }
 
     private static void assertSearchMatchesBruteForce(final DataPoint[] points) {

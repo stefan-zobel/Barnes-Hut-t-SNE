@@ -5,7 +5,7 @@ import com.jujutsu.utils.MnistData;
 import com.jujutsu.utils.TSneUtils;
 
 /**
- * One full t-SNE run over MNIST - the measurement `Performance.md` reports for the 60 000 image set.
+ * One full t-SNE run over MNIST - the measurement the README reports for the 60 000 image set.
  * <p>
  * Not a test. It has no assertions and takes minutes; it exists so that the numbers in the
  * documentation can be reproduced and so that a change can be weighed against them. See the README

@@ -6,24 +6,21 @@ import static java.lang.Math.sqrt;
 /**
  * One point of a data set, as the vantage point tree sees it.
  * <p>
- * A point is a <em>view</em>: it holds the array its coordinates live in together with the index at
- * which they start, and reads them from there. It neither copies them nor ever writes to them. The
- * ball tree is built over the flat {@code N x D} input matrix, so all {@code N} points share that one
- * array and not a single row is copied. Constructing them used to copy every row twice, once out of
- * the flat matrix and once again in the constructor here, which came to 63 MB of transient allocation
- * for 5000 points of 784 dimensions.
+ * A point holds its own {@code D} coordinates and reads them from index 0. It never writes to them.
  * <p>
- * The flip side of sharing is that one surviving point keeps the whole matrix reachable, where it
- * used to keep only its own row alive. That costs nothing here - the tree holds all {@code N} points
- * anyway - but a caller that keeps a single point out of a large data set should know it.
+ * It was a <em>view</em> into the flat {@code N x D} input matrix for a while, which saved copying
+ * every row - the original copied each one twice, 63 MB of transient allocation for 5000 points of 784
+ * dimensions. That turned out to cost more than it saved: the kNN search reads these coordinates
+ * billions of times, and reading them out of one shared array through an offset made the search about
+ * 1.25x slower at 20 000 points, half of it from the shared array and a third from the offset in the
+ * index. The row is copied once now, so the allocation is still half of what the original did and the
+ * search reads a short array from index 0.
  */
 public class DataPoint {
 
     int _ind;
-    /** the array the coordinates live in, shared with the other points of the same data set */
+    /** this point's own coordinates, {@code _D} of them, starting at index 0 */
     double [] _x;
-    /** index of this point's first coordinate in {@link #_x} */
-    int _offset;
     int _D;
 
     public DataPoint() {
@@ -36,24 +33,24 @@ public class DataPoint {
      *
      * @param D the dimensionality
      * @param ind index of the point in its data set
-     * @param x the coordinates. They are <em>not</em> copied: the point reads them from this array for
-     *            as long as it lives, so writing to it afterwards changes the point.
+     * @param x the coordinates, of which the first {@code D} are copied
      */
     public DataPoint(int D, int ind, double [] x) {
         this(x, 0, D, ind);
     }
 
     /**
-     * A point over one row of a flat {@code N x D} matrix.
+     * A point over one row of a flat {@code N x D} matrix. The row is copied, so the matrix may be
+     * changed or discarded afterwards without affecting the point.
      *
-     * @param x the flat matrix, not copied
+     * @param x the flat matrix, at least {@code offset + D} elements
      * @param offset index of this point's first coordinate in {@code x}
      * @param D the dimensionality
      * @param ind index of the point in its data set
      */
     public DataPoint(double [] x, int offset, int D, int ind) {
-        _x = x;
-        _offset = offset;
+        _x = new double[D];
+        System.arraycopy(x, offset, _x, 0, D);
         _D = D;
         _ind = ind;
     }
@@ -62,20 +59,20 @@ public class DataPoint {
     public String toString() {
         String xStr = "";
         for (int i = 0; i < min(20,_D); i++) {
-            xStr += _x[_offset + i] + ", ";
+            xStr += _x[i] + ", ";
         }
         return "DataPoint (index=" + _ind+ ", Dim=" + _D + ", point=" + xStr + ")";
     }
 
     public int index() { return _ind; }
     int dimensionality() { return _D; }
-    double x(int d) { return _x[_offset + d]; }
+    double x(int d) { return _x[d]; }
 
     public double euclidean_distance( DataPoint t1 ) {
-        return sqrt(EuclideanDistance.squaredDistance(t1._x, t1._offset, _x, _offset, t1._D));
+        return sqrt(EuclideanDistance.squaredDistance(t1._x, _x, t1._D));
     }
 
     public static double euclidean_distance( DataPoint t1, DataPoint t2 ) {
-        return sqrt(EuclideanDistance.squaredDistance(t1._x, t1._offset, t2._x, t2._offset, t1._D));
+        return sqrt(EuclideanDistance.squaredDistance(t1._x, t2._x, t1._D));
     }
 }

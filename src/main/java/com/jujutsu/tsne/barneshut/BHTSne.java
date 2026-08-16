@@ -625,18 +625,21 @@ public class BHTSne implements BarnesHutTSne {
     /**
      * The {@code N} rows of the flat {@code N x D} data matrix, as the points of the ball tree.
      * <p>
-     * The rows are not copied. They used to be copied twice per point - once out of {@code X} by
-     * {@code MatrixOps.extractRowFromFlatMatrix} and once more by the {@link DataPoint} constructor,
-     * the first copy being garbage before the loop reached the next point. That was 17 MB of transient
-     * allocation for 20 000 points of 50 dimensions and 63 MB for 5000 points of 784. Nothing writes
-     * to a point's coordinates anywhere in the tree, so neither copy protected anything.
+     * Each row is copied exactly once, by the {@link DataPoint} constructor reading it straight out of
+     * {@code X}. The original copied it twice - once out of {@code X} by
+     * {@code MatrixOps.extractRowFromFlatMatrix} and once more in the constructor, the first copy being
+     * garbage before the loop reached the next point, which came to 17 MB of transient allocation for
+     * 20 000 points of 50 dimensions and 63 MB for 5000 points of 784.
+     * <p>
+     * Copying none at all was tried, with the points as views into {@code X}. It cost more in the
+     * search than it saved here, see {@link DataPoint}.
      *
      * @param X the data, row major, at least {@code N * D} elements
      * @param N the number of points
      * @param D the dimensionality
      * @return one point per row, in row order
      */
-    static DataPoint [] rowViews(double [] X, int N, int D) {
+    static DataPoint [] rowPoints(double [] X, int N, int D) {
         final DataPoint [] obj_X = new DataPoint [N];
         for(int n = 0; n < N; n++) {
             obj_X[n] = new DataPoint(X, n * D, D, n);
@@ -660,7 +663,7 @@ public class BHTSne implements BarnesHutTSne {
         // Build ball tree on data set
         VpTree<DataPoint> tree = vpTreeSeed == null ? new VpTree<DataPoint>(distance)
                 : new VpTree<DataPoint>(distance, vpTreeSeed.longValue());
-        final DataPoint [] obj_X = rowViews(X, N, D);
+        final DataPoint [] obj_X = rowPoints(X, N, D);
         tree.create(obj_X);
 
         // Loop over all points to find nearest neighbors

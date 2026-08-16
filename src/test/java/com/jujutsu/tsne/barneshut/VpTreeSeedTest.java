@@ -33,7 +33,7 @@ public class VpTreeSeedTest {
         for (int i = 0; i < x.length; i++) {
             x[i] = random.nextGaussian();
         }
-        return BHTSne.rowViews(x, N, D);
+        return BHTSne.rowPoints(x, N, D);
     }
 
     /** A description of the tree's shape: every node's item index and threshold, in build order. */

@@ -54,8 +54,7 @@ public class VpTree<StorageType> {
     /**
      * Builds the tree over the given points. The points themselves are not copied, only the array
      * holding them: building permutes it, and the callers keep using their own array to look up the
-     * search target of point {@code n}. That is {@code N} references, not {@code N} rows - the points
-     * are views of one flat matrix, see {@link DataPoint}.
+     * search target of point {@code n}. That is {@code N} references, not {@code N} rows.
      * <p>
      * On a seeded tree the generator is reset here rather than carried on, so that every call builds
      * the same tree from the same points instead of only the first one.
