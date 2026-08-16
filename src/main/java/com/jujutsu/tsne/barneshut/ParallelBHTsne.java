@@ -76,7 +76,8 @@ public class ParallelBHTsne extends BHTSne {
         for(int n = 0; n < N; n++) row_P[n + 1] = row_P[n] + K;    
 
         // Build ball tree on data set
-        ParallelVpTree<DataPoint> tree = new ParallelVpTree<DataPoint>(distance);
+        ParallelVpTree<DataPoint> tree = vpTreeSeed == null ? new ParallelVpTree<DataPoint>(distance)
+                : new ParallelVpTree<DataPoint>(distance, vpTreeSeed.longValue());
         final DataPoint [] obj_X = rowViews(X, N, D);
         tree.create(obj_X);
 

@@ -67,6 +67,17 @@ public class BHTSne implements BarnesHutTSne {
     protected double lastSumQ;
 
     /**
+     * Seed for the vantage point choice of the ball tree, or {@code null} to leave it arbitrary,
+     * which is the default and what this has always done.
+     * <p>
+     * The embedding does not depend on it - the kNN search returns the same neighbours whatever shape
+     * the tree happens to take - but the time to find them does, by as much as a factor of 1.6 at
+     * {@code N = 60 000}. Anything that measures this phase has to pin it down first, which is what
+     * this is for. Package private on purpose: it is a handle for measurement, not API.
+     */
+    Long vpTreeSeed = null;
+
+    /**
      * Work arrays of the gradient, held across the iterations of a run so that they are allocated once
      * instead of once per iteration. They fit one shape only, so {@link #computeGradient} reallocates
      * them whenever it is called with an {@code N} or a {@code D} they were not sized for.
@@ -647,7 +658,8 @@ public class BHTSne implements BarnesHutTSne {
         for(int n = 0; n < N; n++) row_P[n + 1] = row_P[n] + K;    
 
         // Build ball tree on data set
-        VpTree<DataPoint> tree = new VpTree<DataPoint>(distance);
+        VpTree<DataPoint> tree = vpTreeSeed == null ? new VpTree<DataPoint>(distance)
+                : new VpTree<DataPoint>(distance, vpTreeSeed.longValue());
         final DataPoint [] obj_X = rowViews(X, N, D);
         tree.create(obj_X);
 

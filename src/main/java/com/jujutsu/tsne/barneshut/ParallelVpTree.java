@@ -16,6 +16,18 @@ public class ParallelVpTree<StorageType> extends VpTree<StorageType> {
     }
 
     /**
+     * A tree whose vantage point choice is reproducible, see {@link VpTree#VpTree(Distance, long)}.
+     * The search is parallel either way; only the build reads the generator, and it is single
+     * threaded.
+     *
+     * @param distance the metric
+     * @param seed seed for the vantage point choice
+     */
+    public ParallelVpTree(Distance distance, long seed) {
+        super(distance, seed);
+    }
+
+    /**
      * Searches the k nearest neighbours of every target in parallel.
      *
      * @param tree the tree to search, whose root is used

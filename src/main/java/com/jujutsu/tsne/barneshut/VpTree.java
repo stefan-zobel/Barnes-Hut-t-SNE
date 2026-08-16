@@ -1,6 +1,7 @@
 package com.jujutsu.tsne.barneshut;
 
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class VpTree<StorageType> {
@@ -13,12 +14,41 @@ public class VpTree<StorageType> {
     // built depth first over disjoint sub ranges, so one array for the whole tree is enough.
     private double [] _distances;
 
+    /**
+     * Generator behind the vantage point choice, or {@code null} when the tree is unseeded and reads
+     * {@link ThreadLocalRandom} instead. The build is depth first on one thread, so a plain
+     * {@link Random} is enough and no synchronization is involved.
+     */
+    private final Random random;
+    private final long seed;
+
     public VpTree() {
-        distance = new EuclideanDistance();
+        this(new EuclideanDistance());
     }
 
     public VpTree(Distance distance) {
         this.distance = distance;
+        this.random = null;
+        this.seed = 0L;
+    }
+
+    /**
+     * A tree that picks its vantage points from a seeded generator, so that building it twice from
+     * the same points gives the same tree.
+     * <p>
+     * The choice is arbitrary either way and the search returns the same neighbours whichever tree it
+     * gets - the neighbours of a point are the neighbours. What the shape decides is how long finding
+     * them takes, and that varies a lot: measured at {@code N = 60 000} the same build searching the
+     * same input took between 46.8 s and 93.5 s depending on how the vantage points happened to fall.
+     * Seeding is what makes that cost reproducible, which anything measuring this phase needs.
+     *
+     * @param distance the metric
+     * @param seed seed for the vantage point choice
+     */
+    public VpTree(Distance distance, long seed) {
+        this.distance = distance;
+        this.random = new Random(seed);
+        this.seed = seed;
     }
 
     /**
@@ -26,13 +56,29 @@ public class VpTree<StorageType> {
      * holding them: building permutes it, and the callers keep using their own array to look up the
      * search target of point {@code n}. That is {@code N} references, not {@code N} rows - the points
      * are views of one flat matrix, see {@link DataPoint}.
+     * <p>
+     * On a seeded tree the generator is reset here rather than carried on, so that every call builds
+     * the same tree from the same points instead of only the first one.
      *
      * @param items the points, one per index of the data set
      */
     public void create(DataPoint [] items) {
+        if (random != null) {
+            random.setSeed(seed);
+        }
         _items = items.clone();
         _distances = new double[_items.length];
         _root = buildFromPoints(0,items.length);
+    }
+
+    /** @return whether the vantage point choice is reproducible */
+    public boolean isSeeded() {
+        return random != null;
+    }
+
+    /** The next vantage point choice, from the seeded generator if there is one. */
+    private double nextRandom() {
+        return random != null ? random.nextDouble() : ThreadLocalRandom.current().nextDouble();
     }
 
     public void search(DataPoint target, int k, List<DataPoint> results, List<Double> distances) {
@@ -89,7 +135,7 @@ public class VpTree<StorageType> {
             }
 
             // Choose an arbitrary point and move it to the start
-            int i = (int) (ThreadLocalRandom.current().nextDouble() * (upper - lower - 1)) + lower;
+            int i = (int) (nextRandom() * (upper - lower - 1)) + lower;
             if(lower != i) swap(_items, lower, i);
 
             // Distance to the vantage point, evaluated once per item rather than once per comparison
