@@ -399,16 +399,17 @@ public class BHTSne implements BarnesHutTSne {
 		double [] gains = new double[N * no_dims];
 		for(int i = 0; i < N * no_dims; i++) gains[i] = 1.0;
 
-		// Normalize input data (to prevent numerical problems)
+		// This is where the input would be normalized, and it never has been: the two statements that
+		// did it - a zeroMean call and a division by the largest value - stood here commented out, and
+		// all that ran was the scan producing the divisor, which nothing then read. The scan has gone
+		// with them. Note the scan took no absolute value, so on input whose extreme is negative it
+		// would not even have been a usable divisor.
+		//
+		// Leaving the normalization out does not change the embedding. A common factor on all
+		// distances is absorbed by the perplexity search, which solves for a beta that scales
+		// inversely. What it costs is numerical headroom on inputs of extreme magnitude.
 		System.out.println("Computing input similarities...");
 		long start = System.currentTimeMillis();
-		//zeroMean(X, N, D);
-		double max_X = .0;
-		for(int i = 0; i < N * D; i++) {
-			if(X[i] > max_X) max_X = X[i];
-		}
-
-		//for(int i = 0; i < N * D; i++) X[i] /= max_X;
 
 		int K  = (int) (3 * perplexity);
 		int [] row_P = new int[N+1];
@@ -686,164 +687,6 @@ public class BHTSne implements BarnesHutTSne {
 
 			}
 		}
-	}
-
-	void computeGaussianPerplexity(double [] X, int N, int D, int [] _row_P, int [] _col_P, double [] _val_P, double perplexity, double threshold) {
-		// Allocate some memory we need for computations
-		double [] buff  = new double[D];
-		double [] DD    = new double[N];
-		double [] cur_P = new double[N];
-
-		// Compute the Gaussian kernel row by row (to find number of elements in sparse P)
-		int total_count = 0;
-		for(int n = 0; n < N; n++) {
-
-			// Compute the squared Euclidean distance matrix
-			for(int m = 0; m < N; m++) {
-				for(int d = 0; d < D; d++) buff[d]  = X[n * D + d];
-				for(int d = 0; d < D; d++) buff[d] -= X[m * D + d];
-				DD[m] = .0;
-				for(int d = 0; d < D; d++) DD[m] += buff[d] * buff[d];
-			}
-
-			// Initialize some variables
-			boolean found = false;
-			double beta = 1.0;
-			double min_beta = -Double.MAX_VALUE;
-			double max_beta =  Double.MAX_VALUE;
-			double tol = 1e-5;
-
-			// Iterate until we found a good perplexity
-			int iter = 0; 
-			double sum_P = 0.;
-			while(!found && iter < 200) {
-
-				// Compute Gaussian kernel row
-				for(int m = 0; m < N; m++) cur_P[m] = exp(-beta * DD[m]);
-				cur_P[n] = Double.MIN_VALUE;
-
-				// Compute entropy of current row
-				sum_P = Double.MIN_VALUE;
-				for(int m = 0; m < N; m++) sum_P += cur_P[m];
-				double H = 0.0;
-				for(int m = 0; m < N; m++) H += beta * (DD[m] * cur_P[m]);
-				H = (H / sum_P) + log(sum_P);
-
-				// Evaluate whether the entropy is within the tolerance level
-				double Hdiff = H - log(perplexity);
-				if(Hdiff < tol && -Hdiff < tol) {
-					found = true;
-				}
-				else {
-					if(Hdiff > 0) {
-						min_beta = beta;
-						if(max_beta == Double.MAX_VALUE || max_beta == -Double.MAX_VALUE)
-							beta *= 2.0;
-						else
-							beta = (beta + max_beta) / 2.0;
-					}
-					else {
-						max_beta = beta;
-						if(min_beta == -Double.MAX_VALUE || min_beta == Double.MAX_VALUE)
-							beta /= 2.0;
-						else
-							beta = (beta + min_beta) / 2.0;
-					}
-				}
-
-				// Update iteration counter
-				iter++;
-			}
-
-			// Row-normalize and threshold current row of P
-			for(int m = 0; m < N; m++) cur_P[m] /= sum_P;
-			for(int m = 0; m < N; m++) {
-				if(cur_P[m] > threshold / (double) N) total_count++;
-			}
-		}
-
-		// Allocate the memory we need
-		_row_P = new int[N + 1];
-		_col_P = new int[total_count];
-		_val_P = new double[total_count];
-		int [] row_P = _row_P;
-		int [] col_P = _col_P;
-		double [] val_P = _val_P;
-		row_P[0] = 0;
-
-		// Compute the Gaussian kernel row by row (this time, store the results)
-		int count = 0;
-		for(int n = 0; n < N; n++) {
-
-			// Compute the squared Euclidean distance matrix
-			for(int m = 0; m < N; m++) {
-				for(int d = 0; d < D; d++) buff[d]  = X[n * D + d];
-				for(int d = 0; d < D; d++) buff[d] -= X[m * D + d];
-				DD[m] = .0;
-				for(int d = 0; d < D; d++) DD[m] += buff[d] * buff[d];
-			}
-
-			// Initialize some variables
-			boolean found = false;
-			double beta = 1.0;
-			double min_beta = -Double.MAX_VALUE;
-			double max_beta =  Double.MAX_VALUE;
-			double tol = 1e-5;
-
-			// Iterate until we found a good perplexity
-			int iter = 0; 
-			double sum_P = 0.;
-			while(!found && iter < 200) {
-
-				// Compute Gaussian kernel row
-				for(int m = 0; m < N; m++) cur_P[m] = exp(-beta * DD[m]);
-				cur_P[n] = Double.MIN_VALUE;
-
-				// Compute entropy of current row
-				sum_P = Double.MIN_VALUE;
-				for(int m = 0; m < N; m++) sum_P += cur_P[m];
-				double H = 0.0;
-				for(int m = 0; m < N; m++) H += beta * (DD[m] * cur_P[m]);
-				H = (H / sum_P) + log(sum_P);
-
-				// Evaluate whether the entropy is within the tolerance level
-				double Hdiff = H - log(perplexity);
-				if(Hdiff < tol && -Hdiff < tol) {
-					found = true;
-				}
-				else {
-					if(Hdiff > 0) {
-						min_beta = beta;
-						if(max_beta == Double.MAX_VALUE || max_beta == -Double.MAX_VALUE)
-							beta *= 2.0;
-						else
-							beta = (beta + max_beta) / 2.0;
-					}
-					else {
-						max_beta = beta;
-						if(min_beta == -Double.MAX_VALUE || min_beta == Double.MAX_VALUE)
-							beta /= 2.0;
-						else
-							beta = (beta + min_beta) / 2.0;
-					}
-				}
-
-				// Update iteration counter
-				iter++;
-			}
-
-			// Row-normalize and threshold current row of P
-			for(int m = 0; m < N; m++) cur_P[m] /= sum_P;
-			for(int m = 0; m < N; m++) {
-				if(cur_P[m] > threshold / (double) N) {
-					col_P[count] = m;
-					val_P[count] = cur_P[m];
-					count++;
-				}
-			}
-			row_P[n + 1] = count;
-		}
-
 	}
 
 	class SymResult {
