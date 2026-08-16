@@ -3,22 +3,11 @@ package com.jujutsu.tsne.barneshut;
 import static java.lang.Math.exp;
 import static java.lang.Math.log;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 
 public class ParallelBHTsne extends BHTSne {
-
-	/**
-	 * Work arrays of the gradient, held across the iterations of a run so that they are allocated once
-	 * instead of once per iteration. They fit one shape only, so {@link #computeGradient} reallocates
-	 * them whenever it is called with an {@code N} or a {@code D} they were not sized for.
-	 */
-	double[] sum_Q = null;
-	double[] pos_f = null;
-	double[][] neg_f = null;
-	double[][] buff = null;
 
 	void updateGradient(int N, int no_dims, double[] Y, double momentum, double eta, double[] dY, double[] uY,
 			double[] gains) {
@@ -29,9 +18,6 @@ public class ParallelBHTsne extends BHTSne {
 
 			// Perform gradient update (with momentum and gains)
 			Y[i] = Y[i] + uY[i];
-			if(Double.isNaN(Y[i])) {
-				System.out.println("Point is NaN!");
-			}	
 			uY[i] = momentum * uY[i] - eta * gains[i] * dY[i];
 		});
 	}
@@ -53,22 +39,8 @@ public class ParallelBHTsne extends BHTSne {
 			int [] inp_col_P, double [] inp_val_P, 	double [] Y, int N, int D, 
 			double [] dC, double theta, int iter)
 	{
-		// By having these as class members we don't have to ALLOCATE them in each iteration
-		if(workArraysDoNotFit(N, D)) {
-			sum_Q = new double[N];
-			pos_f = new double[N * D];
-			neg_f = new double[N][D];
-			buff = new double[N][D];
-		}
+		prepareWorkArrays(N, D);
 
-		// But we still need to reset them each round	
-		Arrays.fill(pos_f,0.0);
-		Arrays.fill(sum_Q,0.0);
-		for (int n=0; n < N; n++) {
-		    Arrays.fill(neg_f[n], 0.0);
-		    Arrays.fill(buff[n], 0.0);
-		}
-		
 		// Construct space-partitioning tree on current map
 		ParallelSPTree tree = new ParallelSPTree(D, Y, N);
 
@@ -87,23 +59,6 @@ public class ParallelBHTsne extends BHTSne {
 				dC[n * D + d] = pos_f[n * D + d] - (neg_f[n][d] / totalSum_Q);
 			}
 		});
-	}
-
-	/**
-	 * Whether the cached work arrays have to be replaced before this gradient step can use them.
-	 * <p>
-	 * Testing {@code pos_f == null} alone, as this used to, allocates for the first run and then keeps
-	 * those arrays for every later run on the same instance. A second, larger run then indexes past
-	 * the end of the first one's arrays: measured, {@code N} going from 300 to 600 throws an
-	 * {@code ArrayIndexOutOfBoundsException}, and so does {@code no_dims} going from 2 to 3. A smaller
-	 * second run happens to be correct - the arrays are reset in full and the surplus is never read -
-	 * but it carries the larger allocation for the rest of the instance's life.
-	 * <p>
-	 * {@code pos_f.length} pins {@code D} down for any {@code N >= 1}, which avoids reading
-	 * {@code neg_f[0]} on a hypothetical empty input.
-	 */
-	private boolean workArraysDoNotFit(int N, int D) {
-		return neg_f == null || neg_f.length != N || pos_f.length != N * D;
 	}
 
 	@Override

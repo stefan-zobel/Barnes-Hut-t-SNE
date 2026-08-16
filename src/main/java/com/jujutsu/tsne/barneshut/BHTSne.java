@@ -38,6 +38,7 @@ import static java.lang.Math.log;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.DoubleStream;
 
@@ -64,6 +65,49 @@ public class BHTSne implements BarnesHutTSne {
 	 * moved by {@link #updateGradient}, this is the normalization of the previous state.
 	 */
 	protected double lastSumQ;
+
+	/**
+	 * Work arrays of the gradient, held across the iterations of a run so that they are allocated once
+	 * instead of once per iteration. They fit one shape only, so {@link #computeGradient} reallocates
+	 * them whenever it is called with an {@code N} or a {@code D} they were not sized for.
+	 * <p>
+	 * {@code sum_Q}, {@code pos_f} and {@code neg_f} are accumulated into and have to be cleared before
+	 * each gradient step. {@code buff} is scratch that {@code SPTree.computeNonEdgeForces} fills before
+	 * it reads, so it is not cleared.
+	 */
+	double[] sum_Q = null;
+	double[] pos_f = null;
+	double[][] neg_f = null;
+	double[][] buff = null;
+
+	/**
+	 * Makes the work arrays fit a gradient step of {@code N} points in {@code D} dimensions, and clears
+	 * the three that are accumulated into.
+	 * <p>
+	 * Keying this on the shape rather than on {@code pos_f == null} matters because the arrays outlive
+	 * a single run: a second, larger run on the same instance would otherwise index past the end of the
+	 * first one's arrays. Measured, {@code N} going from 300 to 600 threw an
+	 * {@code ArrayIndexOutOfBoundsException}, and so did {@code no_dims} going from 2 to 3. A smaller
+	 * second run happened to be correct - the arrays are cleared in full and the surplus is never read
+	 * - but it carried the larger allocation for the rest of the instance's life.
+	 * <p>
+	 * {@code pos_f.length} pins {@code D} down for any {@code N >= 1}, which avoids reading
+	 * {@code neg_f[0]} on a hypothetical empty input.
+	 */
+	final void prepareWorkArrays(int N, int D) {
+		if(neg_f == null || neg_f.length != N || pos_f.length != N * D) {
+			sum_Q = new double[N];
+			pos_f = new double[N * D];
+			neg_f = new double[N][D];
+			buff = new double[N][D];
+			return;
+		}
+		Arrays.fill(sum_Q, 0.0);
+		Arrays.fill(pos_f, 0.0);
+		for(int n = 0; n < N; n++) {
+			Arrays.fill(neg_f[n], 0.0);
+		}
+	}
 
 	@Override
 	public double[][] tsne(TSneConfiguration config) {
@@ -489,9 +533,6 @@ public class BHTSne implements BarnesHutTSne {
 
 			// Perform gradient update (with momentum and gains)
 			Y[i] = Y[i] + uY[i];
-			if(Double.isNaN(Y[i])) {
-				System.out.println("Point is NaN!");
-			}	
 			uY[i] = momentum * uY[i] - eta * gains[i] * dY[i];
 		}
 	}
@@ -503,12 +544,10 @@ public class BHTSne implements BarnesHutTSne {
 	{
 		// Construct space-partitioning tree on current map
 		SPTree tree = new SPTree(D, Y, N);
-		
+
+		prepareWorkArrays(N, D);
+
 		double totalSum_Q = 0.0;
-		double[] sum_Q = new double[N];
-		double[] pos_f = new double[N * D];
-		double[][] neg_f = new double[N][D];
-		double[][] buff = new double[N][D];
 		tree.computeEdgeForces(inp_row_P, inp_col_P, inp_val_P, N, pos_f);
 
 		// Compute all terms required for t-SNE gradient
@@ -645,9 +684,6 @@ public class BHTSne implements BarnesHutTSne {
 				double H = .0;
 				for(int m = 0; m < K; m++) {
 					cur_P[m] = exp(-beta * distances[m + 1]);
-					if(Double.isNaN(cur_P[m])) {
-						System.out.println("Point is NaN!");
-					}
 					sum_P += cur_P[m];
 					H += beta * (distances[m + 1] * cur_P[m]);
 				}
@@ -682,16 +718,8 @@ public class BHTSne implements BarnesHutTSne {
 			// Row-normalize current row of P and store in matrix 
 			for(int m = 0; m < K; m++) {
 				cur_P[m] /= sum_P;
-				if(Double.isNaN(cur_P[m])) {
-					System.out.println("Point is NaN!");
-				}	
-
 				col_P[row_P[n] + m] = indices[m + 1].index();
 				val_P[row_P[n] + m] = cur_P[m];
-				if(Double.isNaN(val_P[row_P[n] + m])) {
-					System.out.println("Point is NaN!");
-				}	
-
 			}
 		}
 	}
@@ -762,15 +790,7 @@ public class BHTSne implements BarnesHutTSne {
 							sym_col_P[sym_row_P[n]        + offset[n]]        = col_P[i];
 							sym_col_P[sym_row_P[col_P[i]] + offset[col_P[i]]] = n;
 							sym_val_P[sym_row_P[n]        + offset[n]]        = val_P[i] + val_P[m];
-							if(Double.isNaN(sym_val_P[sym_row_P[n]        + offset[n]])) {
-								System.out.println("Point is NaN!");
-							}	
-				
 							sym_val_P[sym_row_P[col_P[i]] + offset[col_P[i]]] = val_P[i] + val_P[m];
-							if(Double.isNaN(sym_val_P[sym_row_P[col_P[i]] + offset[col_P[i]]] )) {
-								System.out.println("Point is NaN!");
-							}	
-							
 						}
 					}
 				}
@@ -815,9 +835,6 @@ public class BHTSne implements BarnesHutTSne {
 		for(int n = 0; n < N; n++) {
 			for(int d = 0; d < D; d++) {
 				X[n * D + d] -= mean[d];
-				if(Double.isNaN(X[n * D + d])) {
-					System.out.println("Point is NaN!");
-				}
 			}
 		}
 	}

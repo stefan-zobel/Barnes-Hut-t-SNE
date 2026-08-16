@@ -11,12 +11,12 @@ package com.jujutsu.tsne;
 */
 public interface TSne {
 
-	double [][] tsne(TSneConfiguration config);
-	void abort();
+    double [][] tsne(TSneConfiguration config);
+    void abort();
 
-	static class R {
-		double [][] P;
-		double [] beta;
-		double H;
-	}
+    static class R {
+        double [][] P;
+        double [] beta;
+        double H;
+    }
 }

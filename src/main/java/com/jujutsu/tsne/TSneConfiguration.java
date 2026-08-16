@@ -2,43 +2,43 @@ package com.jujutsu.tsne;
 
 public interface TSneConfiguration {
 
-	double[][] getXin();
+    double[][] getXin();
 
-	void setXin(double[][] xin);
+    void setXin(double[][] xin);
 
-	int getOutputDims();
+    int getOutputDims();
 
-	void setOutputDims(int n);
+    void setOutputDims(int n);
 
-	int getInitialDims();
+    int getInitialDims();
 
-	void setInitialDims(int initial_dims);
+    void setInitialDims(int initial_dims);
 
-	double getPerplexity();
+    double getPerplexity();
 
-	void setPerplexity(double perplexity);
+    void setPerplexity(double perplexity);
 
-	int getMaxIter();
+    int getMaxIter();
 
-	void setMaxIter(int max_iter);
+    void setMaxIter(int max_iter);
 
-	boolean usePca();
+    boolean usePca();
 
-	void setUsePca(boolean use_pca);
+    void setUsePca(boolean use_pca);
 
-	double getTheta();
+    double getTheta();
 
-	void setTheta(double theta);
+    void setTheta(double theta);
 
-	boolean silent();
+    boolean silent();
 
-	void setSilent(boolean silent);
+    void setSilent(boolean silent);
 
-	boolean printError();
+    boolean printError();
 
-	void setPrintError(boolean print_error);
+    void setPrintError(boolean print_error);
 
-	int getXStartDim();
+    int getXStartDim();
 
-	int getNrRows();
+    int getNrRows();
 }
