@@ -216,6 +216,34 @@ public class TruncatedPCATest {
 		assertTrue(deviation(new JacobiPCA().pca(data, 2), approximate, 0) < 1e-4);
 	}
 
+	@Test
+	public void fixedIterationsRunsExactlyTheRequestedNumber() {
+		// no stability test decides anything here: the count alone ends the loop, which is the point
+		// of the factory - see its javadoc for why that is the right design for many components
+		TruncatedPCA truncated = TruncatedPCA.fixedIterations(10, 6);
+		truncated.pca(decayingSpectrum(ROWS, COLS), 2);
+		assertEquals(6, truncated.getIterations());
+	}
+
+	@Test
+	public void fixedIterationsIsDeterministic() {
+		double[][] data = decayingSpectrum(ROWS, COLS);
+		double[][] first = TruncatedPCA.fixedIterations(10, 6).pca(data, 2);
+		double[][] second = TruncatedPCA.fixedIterations(10, 6).pca(data, 2);
+		for (int i = 0; i < first.length; i++) {
+			assertArrayEquals("row " + i, first[i], second[i], 0.0);
+		}
+	}
+
+	@Test
+	public void fixedIterationsResolvesTheLeadingComponents() {
+		double[][] data = decayingSpectrum(ROWS, COLS);
+		double[][] approximate = TruncatedPCA.fixedIterations(10, 6).pca(data, 2);
+		double[][] exact = new JacobiPCA().pca(data, 2);
+		assertTrue("component 1: " + deviation(exact, approximate, 0), deviation(exact, approximate, 0) < 1e-4);
+		assertTrue("component 2: " + deviation(exact, approximate, 1), deviation(exact, approximate, 1) < 1e-4);
+	}
+
 	@Test(expected = IllegalArgumentException.class)
 	public void rejectsAnEmptyMatrix() {
 		new TruncatedPCA().pca(new double[0][0], 1);

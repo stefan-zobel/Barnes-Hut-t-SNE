@@ -75,6 +75,30 @@ public final class TruncatedPCA {
     }
 
     /**
+     * An instance that runs a fixed number of subspace iterations instead of testing the Ritz values
+     * for stability.
+     *
+     * <p>Use this when many components are wanted. The stability test asks every kept direction to
+     * settle, and the tail of a spectrum with dozens of components is nearly tied, so the test is
+     * never satisfied and only the iteration cap ever ends the loop - the test then costs work
+     * without deciding anything. A fixed count says the same thing directly. It is also the right
+     * answer when the caller needs the retained <em>subspace</em> rather than the individual
+     * directions inside it, because a nearly tied tail leaves those directions undetermined anyway
+     * while the subspace they span is already accurate.</p>
+     *
+     * <p>{@link #converged()} then reports whether the Ritz values stopped moving altogether before
+     * the count was exhausted, which is a stronger statement than the tolerance test and is not
+     * normally reached; a caller of this factory has already decided that {@code iterations} is
+     * enough and does not need to consult it.</p>
+     *
+     * @param oversampling extra dimensions carried along beyond {@code no_dims}
+     * @param iterations   number of subspace iterations to run
+     */
+    public static TruncatedPCA fixedIterations(int oversampling, int iterations) {
+        return new TruncatedPCA(oversampling, 0.0, iterations, DEFAULT_SEED);
+    }
+
+    /**
      * Fits on {@code matrix} (row-major, row = sample) and returns the samples projected onto the
      * first {@code no_dims} principal components. Check {@link #converged()} afterwards.
      *

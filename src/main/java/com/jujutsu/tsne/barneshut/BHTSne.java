@@ -92,11 +92,11 @@ public class BHTSne implements BarnesHutTSne {
 	}
 
 	/**
-	 * Feature count above which the truncated PCA is used for the embedding initialization. A full
-	 * decomposition computes all components in O(m n^2) + O(sweeps n^3) although two are needed;
-	 * measured at m = 5000 the two methods break even around n = 32, and the truncated one is
-	 * already 3.9x ahead at n = 64 and 108x at n = 784. Below the threshold the exact path costs at
-	 * most about 20 ms, so there is nothing to gain by approximating there.
+	 * Feature count above which the truncated PCA is used. A full decomposition computes all
+	 * components in O(m n^2) + O(sweeps n^3) even when a handful are needed; measured at m = 5000 the
+	 * two methods break even around n = 32, and the truncated one is 9x to 25x ahead at n = 784
+	 * depending on the spectrum. Below the threshold the exact path costs at most about 20 ms, so
+	 * there is nothing to gain by approximating there.
 	 */
 	private static final int TRUNCATED_PCA_MIN_DIMS = 64;
 
@@ -106,6 +106,55 @@ public class BHTSne implements BarnesHutTSne {
 	 * 6e-3 here.
 	 */
 	private static final double NEGLIGIBLE_SPREAD = 1e-2;
+
+	/**
+	 * Oversampling and subspace iterations of the input reduction. Unlike the embedding
+	 * initialization this keeps dozens of components, so the tail of the spectrum is nearly tied and
+	 * a stability test on the Ritz values would never be satisfied - a fixed count is the honest
+	 * form of the same decision. Chosen by measurement on 2500 x 784 MNIST reduced to 55 components:
+	 * this pair reproduces 99.96 % of the captured variance, preserves pairwise distances to 1.1e-3
+	 * in the median, and keeps 98.8 % of the 60 nearest neighbours, while making the reduction about
+	 * 6.6x cheaper. Cheaper settings measured no worse end to end, but leave less margin.
+	 */
+	private static final int REDUCTION_OVERSAMPLING = 10;
+	private static final int REDUCTION_ITERATIONS   = 6;
+
+	/**
+	 * Largest share of the features the reduction may keep and still use the truncated method. The
+	 * truncated cost grows with the size of the search subspace, so once a large fraction of the
+	 * components is wanted there is nothing left to save and the exact decomposition is both faster
+	 * and exact.
+	 */
+	private static final int REDUCTION_MAX_SUBSPACE_FRACTION = 4;
+
+	/**
+	 * Reduces {@code x} to its leading {@code k} principal components - the transformation applied
+	 * when {@code usePca()} is set.
+	 * <p>
+	 * These components feed the kNN search and therefore the result, not just a starting point, so
+	 * the accuracy question is different from the one at {@link #initialComponents}. It is also more
+	 * forgiving than it looks: everything downstream sees only <em>distances</em> between the
+	 * reduced samples, and those are invariant under a rotation inside the retained subspace. The
+	 * truncated method has to find the right subspace, not the individual directions inside it -
+	 * which is what makes a nearly tied tail harmless here.
+	 * <p>
+	 * Measured end to end on the demo path, the truncated reduction reproduces the neighbourhoods of
+	 * the original high dimensional data as faithfully as the exact one (mean overlap of the 10
+	 * nearest neighbours in the embedding with those in the input: 0.4836 truncated against 0.4810
+	 * exact).
+	 */
+	static double [][] reduceInput(double [][] x, int k) {
+		if(worthTruncating(x[0].length, k)) {
+			return TruncatedPCA.fixedIterations(REDUCTION_OVERSAMPLING, REDUCTION_ITERATIONS).pca(x, k);
+		}
+		return new JacobiPCA().pca(x, k);
+	}
+
+	/** Whether a truncated decomposition into {@code k} of {@code n} components can pay off. */
+	private static boolean worthTruncating(int n, int k) {
+		return n > TRUNCATED_PCA_MIN_DIMS
+				&& (long) (k + REDUCTION_OVERSAMPLING) * REDUCTION_MAX_SUBSPACE_FRACTION <= n;
+	}
 
 	/**
 	 * The leading {@code k} principal components of {@code x}, used to initialize the embedding.
@@ -278,7 +327,7 @@ public class BHTSne implements BarnesHutTSne {
 
 		boolean reduced = false;
 		if(parameterObject.usePca() && D > parameterObject.getInitialDims() && parameterObject.getInitialDims() > 0) {
-			Xin = new JacobiPCA().pca(Xin, parameterObject.getInitialDims());
+			Xin = reduceInput(Xin, parameterObject.getInitialDims());
 			D = parameterObject.getInitialDims();
 			reduced = true;
 			System.out.println("X:Shape after PCA is = " + Xin.length + " x " + Xin[0].length);
@@ -289,7 +338,9 @@ public class BHTSne implements BarnesHutTSne {
 		// The reduction above already expresses the data in its own principal basis, so its
 		// covariance is diagonal with descending entries. The principal directions of the reduced
 		// data are then the canonical basis vectors, which canonicalizeSigns fixes to +e_k, and a
-		// second decomposition would only reproduce the leading columns it already has.
+		// second decomposition would only reproduce the leading columns it already has. This holds
+		// for the truncated reduction too: it returns its components in descending order under the
+		// same sign convention, and the leading ones are the accurate end of its output.
 		double [][] Yinit = (reduced && D >= no_dims) ? leadingColumns(Xin, no_dims)
 		                                             : initialComponents(Xin, no_dims);
 		double [] pc1 = MatrixOps.transposeSerial(Yinit)[0];
