@@ -15,7 +15,7 @@ PCA, perplexity 20, 1000 iterations, on a Ryzen 5 5600H with 12 logical cores:
 
 | | before | after | |
 | --- | ---: | ---: | ---: |
-| `tsne()` | 316.1 s | 228.7 s | **1.38x** |
+| `tsne()` | 345.7 s | 220.9 s | **1.56x** |
 
 The README says how to reproduce it. The algorithm is unchanged: this is the same Barnes-Hut t-SNE,
 computed the same way.
@@ -38,7 +38,8 @@ The work buffers of the gradient are allocated once per run instead of once per 
 implementations. The cost function no longer builds a space partitioning tree of its own: it takes the
 normalization the gradient step of the same iteration has already computed.
 
-Together this is the largest single gain in the table above - the phase went from 220.5 s to 117.3 s.
+Together this is the largest single gain in the table above: the gradient descent is about two thirds
+of a long run, and it is 1.88x faster.
 
 ### The k nearest neighbour search
 
@@ -54,9 +55,14 @@ all. The parallel search no longer collects into a synchronized list, so worker 
 serialize on one monitor, and the results keep their input order instead of arriving in whatever order
 the threads finished.
 
-The points of the ball tree are views into the input matrix rather than copies of its rows. Building
-them used to copy every row twice - 63 MB of throw-away allocation for 5000 points of 784 dimensions,
-half of it garbage immediately.
+Building the points of the ball tree used to copy every row twice - 63 MB of throw-away allocation for
+5000 points of 784 dimensions, half of it garbage immediately. Each row is copied once now, read
+straight out of the input matrix.
+
+Copying none at all was tried, with the points as views into the matrix. It saves the other half and
+costs more than it saves: reading the coordinates out of one shared array through an offset made the
+search 1.25x slower at 20 000 points, which is far more than the allocation was worth. Half of that
+was the shared array and a third the offset in the index, measured by taking them away one at a time.
 
 ### The PCA
 
@@ -90,20 +96,20 @@ anything and had no effect on the result, but when they did fire they cost 46x o
 About 400 lines of unreachable code were removed, including two methods no caller could reach and a
 normalization step that computed a divisor nothing read.
 
-### One phase got slower
+### One phase used to be slower
 
-The perplexity and kNN phase is about 1.1x slower than it was, roughly 10 s against 118 s gained by
-the rest. It cannot produce a wrong answer.
+The perplexity and kNN phase was about 1.1x slower than the original for a while. It is at parity now
+- 1.002x over fifteen blocked repetitions, which is to say indistinguishable - and the rest of the
+table stands as it is.
 
-It sits in the kNN search, and not in the amount of work that search does: with the vantage point
-choice seeded and the node visits counted, the two versions visit 2 072 260 708 and 2 072 268 771
-nodes for the same input - 0.0004 % apart. The ball tree is as good as it was, each visit costs a
-little more, and why has not been established.
+Finding that out took the detour worth recording here. The searches of both versions visit the same
+number of tree nodes to within 0.0004 %, so the ball tree was as good as it had been and the cost had
+to be per visit; it turned out to be the flat shared layout of the points described above.
 
 ## Behaviour that changed
 
-Three things return different numbers than they did. None of them is a defect, but a caller comparing
-against recorded output will see them.
+Two things return different numbers than they did. Neither is a defect, but a caller comparing against
+recorded output will see them.
 
 **Short runs behave differently, and better.** The early exaggeration used to end at a hard coded
 iteration 250, against a reference default of 1000 iterations. Taken literally that breaks every
@@ -115,9 +121,6 @@ reproduces the reference exactly at 1000 iterations and above and keeps the prop
 which is deterministic but approximate. The difference is far below what the stochastic parts of the
 pipeline contribute, and the embedding is scaled to 1e-4 and re-centered from the first iteration
 onward, but it is not bit for bit what it was.
-
-**`DataPoint` no longer copies the array it is given.** It holds a reference and reads through it, so
-a caller that changes the array afterwards changes the point.
 
 ## Compatibility with the previous API
 
@@ -140,8 +143,6 @@ Everything else added to an existing class is additive: `TreeSearchResult.getNei
 Three members were removed deliberately: `ParallelVpTree.searchMultipleWOProgress`, `TSneUtils.check`
 and `SPTree.buff`. The last was `protected` and therefore counted as API for subclasses.
 
-Two contracts changed without a signature moving:
-
-* `DataPoint(int D, int ind, double[] x)` no longer copies its argument, as described above.
-* `TreeSearchResult.getIndices()` and `getDistances()` return views rather than the stored lists, so
-  writing into the result throws where it used to work. Both have been marked as deprecated.
+One contract changed without a signature moving: `TreeSearchResult.getIndices()` and `getDistances()`
+return views rather than the stored lists, so writing into the result throws where it used to work.
+Both have been marked as deprecated.

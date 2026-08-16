@@ -1,6 +1,6 @@
-# Barnes-Hut-t-SNE
+# Barnes-Hut t-SNE
 
-A Java implementation of Barnes-Hut t-SNE, imported from [T-SNE-Java](https://github.com/lejon/T-SNE-Java)
+A Java implementation of __Barnes Hut__ t-SNE, imported from [T-SNE-Java](https://github.com/lejon/T-SNE-Java)
 (the reference implementation) and since worked over for performance. What was
 changed, what it is worth, and what a caller has to know before upgrading is in
 [Optimizations.md](Optimizations.md).
@@ -84,23 +84,29 @@ end:
 
 ```
 --- MnistBenchmark: n = 60000, 1000 iterations ---
-reading the data        :     0,51 s
-tsne()                  :   302,85 s   <- the number to compare
+reading the data        :     0,56 s
+tsne()                  :   213,20 s   <- the number to compare
 ```
 
 The sum of squares of the embedding is printed as well. It is there to make a run that went quietly
 wrong visible, not as a correctness check.
 
-Expect roughly **3.5 to 4 minutes** for the default run on hardware like the one below.
+Expect roughly **2.5 to 4 minutes** for the default run on hardware like the one below, the spread
+being how warm the machine is rather than anything about the run.
 
 ## End to end, against the state before the optimization
 
-Baseline is commit `7444506`, the last one before this work started. Four runs alternating
-`baseline / current / current / baseline`, 60 000 images, 1000 iterations, `-Xmx10g`, JDK 1.8.0_482,
-on a Ryzen 5 5600H with 12 logical cores and 16 GB.
+Baseline is commit `7444506`, the last one before this work started. Six runs in one batch, 60 000
+images, 1000 iterations, `-Xmx10g`, JDK 1.8.0_482, on a Ryzen 5 5600H with 12 logical cores and 16 GB.
 
 | | baseline | current | |
 | --- | ---: | ---: | ---: |
-| `tsne()`, 60 000 images, 1000 iterations | 316.1 s | 228.7 s | **1.38x** |
+| `tsne()`, 60 000 images, 1000 iterations | 345.7 s | 220.9 s | **1.56x** |
 
-Means of two runs each; the individual totals were 302.85 and 329.44 against 235.54 and 221.94.
+The same build took 152.61 s in the first run of the batch and 228.61 s in the last. So the figure
+comes from the two adjacent pairs once the machine had settled - 338.72 against 213.20 and 352.67 against
+228.61, which is 1.59x and 1.54x - and the first pair, which contains the cold start, is left out.
+In both pairs the baseline ran first, in the faster slot, so the comparison is if anything harsh on
+the current build.
+
+Expect this much scatter if you re-run it. Compare runs from one batch, never across sessions.
