@@ -2,8 +2,10 @@ package com.jujutsu.tsne;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.File;
+import java.util.Random;
 
 import org.junit.Test;
 
@@ -15,12 +17,52 @@ import math.linalg.JacobiPCA;
 public class MatrixOpTest {
 
     @Test
-    public void testPCA() {
-        double [][] matrix = MatrixOps.rnorm(200,7);
-        System.out.println(MatrixOps.doubleArrayToPrintString(matrix));
-        JacobiPCA pca = new JacobiPCA();
-        double [][] pcad = pca.pca(matrix, 2);
-        System.out.println(MatrixOps.doubleArrayToPrintString(pcad));
+    public void thePcaProjectionIsCenteredAndOrderedByVariance() {
+        // This used to draw from MatrixOps.rnorm, which is seeded from nothing, print both the input
+        // and the projection, and assert not one thing - it could only fail by throwing. The input is
+        // deterministic now and the two properties every PCA projection has are checked. What
+        // JacobiPCA computes is pinned in JacobiPCATest; this is the call from here.
+        double [][] matrix = twoLatentDirections(200, 7);
+
+        double [][] projected = new JacobiPCA().pca(matrix, 2);
+
+        assertEquals("rows", 200, projected.length);
+        assertEquals("kept components", 2, projected[0].length);
+        assertEquals("component 0 is centered", 0.0, mean(projected, 0), 1e-9);
+        assertEquals("component 1 is centered", 0.0, mean(projected, 1), 1e-9);
+        assertTrue("components must come out in descending order of variance",
+                variance(projected, 0) > variance(projected, 1));
+    }
+
+    /** Rows spanned by one strong and one weak direction plus noise, so the order of the first two
+     *  components is not a matter of chance. */
+    private static double [][] twoLatentDirections(int rows, int cols) {
+        Random random = new Random(20260816L);
+        double [][] x = new double[rows][cols];
+        for (int i = 0; i < rows; i++) {
+            double strong = 10.0 * random.nextGaussian();
+            double weak = 2.0 * random.nextGaussian();
+            for (int j = 0; j < cols; j++) {
+                x[i][j] = (j % 2 == 0 ? strong : weak) + 0.1 * random.nextGaussian();
+            }
+        }
+        return x;
+    }
+
+    private static double mean(double [][] m, int column) {
+        double sum = 0.0;
+        for (double[] row : m) sum += row[column];
+        return sum / m.length;
+    }
+
+    private static double variance(double [][] m, int column) {
+        double mean = mean(m, column);
+        double sum = 0.0;
+        for (double[] row : m) {
+            double d = row[column] - mean;
+            sum += d * d;
+        }
+        return sum / (m.length - 1);
     }
 
     /*
@@ -68,7 +110,7 @@ public class MatrixOpTest {
     @Test
     public void timeTransposesNist() {
         MatrixOps mo = new MatrixOps();
-        double [][] matrix = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/datasets/mnist2500_X.txt"), " ");
+        double [][] matrix = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/datasets/mnist2500_X.txt"), "   ");
         int rows = matrix.length;
         int cols = matrix[0].length;
         double [][] trmatrix = new double [cols][rows];
@@ -110,8 +152,8 @@ public class MatrixOpTest {
     @Test
     public void timeScalarMultNist() {
         MatrixOps mo = new MatrixOps();
-        double [][] matrix1 = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/datasets/mnist2500_X.txt"), " ");
-        double [][] matrix2 = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/datasets/mnist2500_X.txt"), " ");
+        double [][] matrix1 = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/datasets/mnist2500_X.txt"), "   ");
+        double [][] matrix2 = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/datasets/mnist2500_X.txt"), "   ");
         int rows = matrix1.length;
         int cols = matrix1[0].length;
         int noLaps = 300;
