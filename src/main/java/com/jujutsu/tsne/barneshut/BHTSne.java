@@ -157,6 +157,31 @@ public class BHTSne implements BarnesHutTSne {
 	}
 
 	/**
+	 * Where the C++ reference implementation ends the early phase, at its default of 1000 iterations
+	 * - a quarter of the run.
+	 */
+	private static final int REFERENCE_EARLY_PHASE_END = 250;
+
+	/**
+	 * Last iteration of the early phase: up to and including it the gradient sees the exaggerated
+	 * P values and the low momentum, afterwards it does not.
+	 * <p>
+	 * The reference implementation hard codes 250 against its default of 1000 iterations. Taken
+	 * literally that breaks every shorter run: at {@code maxIter <= 250} the exaggeration is never
+	 * switched off, the momentum never reaches its final value, and the embedding is returned in its
+	 * inflated state with no warning at all. Measured, a 200 iteration run produced embeddings whose
+	 * neighbourhoods had almost nothing to do with the input.
+	 * <p>
+	 * The early phase is therefore a quarter of the run, which reproduces the reference exactly at
+	 * 1000 iterations and beyond, and keeps the same proportion below. Runs between 250 and 1000
+	 * iterations do change: they used to exaggerate for a larger share of the schedule than the
+	 * reference intends.
+	 */
+	static int earlyPhaseEnd(int maxIter) {
+		return Math.min(REFERENCE_EARLY_PHASE_END, maxIter / 4);
+	}
+
+	/**
 	 * The leading {@code k} principal components of {@code x}, used to initialize the embedding.
 	 * Uses the truncated method where it pays off, and falls back to the exact decomposition when
 	 * the truncated one neither reaches its tolerance nor is left with directions that do not
@@ -361,7 +386,8 @@ public class BHTSne implements BarnesHutTSne {
 
 		// Set learning parameters
 		double total_time = 0;
-		int stop_lying_iter = 250, mom_switch_iter = 250;
+		int stop_lying_iter = earlyPhaseEnd(parameterObject.getMaxIter());
+		int mom_switch_iter = stop_lying_iter;
 		double momentum = .5, final_momentum = .8;
 		double eta = 200.0;
 

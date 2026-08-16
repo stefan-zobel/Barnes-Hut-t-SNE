@@ -47,7 +47,7 @@ public class MatrixOpVsPython {
 		double [] pysum0 = {30.,  30.,  38.,  42.,  32.};
 		double [][] X = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/python/small_ds.txt"), " ");
 		//System.out.println("TSne.sum(X,0) = \n" + ArrayString.printDoubleArray(tsne.sum(X,0)));
-		double [][] sum0 = mo.sum(X,0);
+		double [][] sum0 = MatrixOps.sum(X,0);
 		for (int i = 0; i < sum0.length; i++) {
 			for (int j = 0; j < sum0[i].length; j++) {
 				assertEquals(pysum0[j], sum0[i][j],epsilon);
@@ -55,7 +55,7 @@ public class MatrixOpVsPython {
 		}
 		double [] pysum1 = {15.,  35.,  19.,  26.,  30.,  18.,  29.};
 		//System.out.println("TSne.sum(X,1) = \n" + ArrayString.printDoubleArray(tsne.sum(X,1)));
-		double [][] sum1 = mo.sum(X,1);
+		double [][] sum1 = MatrixOps.sum(X,1);
 		for (int i = 0; i < sum1.length; i++) {
 			for (int j = 0; j < sum1[i].length; j++) {
 				assertEquals(pysum1[i], sum1[i][j],epsilon);
@@ -92,7 +92,7 @@ public class MatrixOpVsPython {
 				{  9.,  16.,   9.,   9.,  25.},
 				{ 64.,  36.,  81.,  16.,   4.},
 				};
-		double [][] square = mo.square(X);
+		double [][] square = MatrixOps.square(X);
 		assertEqualDoubleArrays(pysquare, square, epsilon);
 	}
 
@@ -110,7 +110,7 @@ public class MatrixOpVsPython {
 				 { -6.,  -8.,  -6.,  -6., -10.},
 				 {-16., -12., -18.,  -8.,  -4.},
 				 };
-		double [][] scale = mo.scalarMult(X,-2);
+		double [][] scale = MatrixOps.scalarMult(X,-2);
 		assertEqualDoubleArrays(pyscle, scale, epsilon);
 	}
 
@@ -128,7 +128,7 @@ public class MatrixOpVsPython {
 				 {  5.,   6.,   5.,   5.,   7.},
 				 { 10.,   8.,  11.,   6.,   4.},
 				 };
-		double [][] plus = mo.scalarPlus(X,2);
+		double [][] plus = MatrixOps.scalarPlus(X,2);
 		assertEqualDoubleArrays(pyplus, plus, epsilon);
 	}
 	
@@ -146,7 +146,7 @@ public class MatrixOpVsPython {
 				 { 0.33333333,  0.25,        0.33333333,  0.33333333,  0.2       },
 				 { 0.125,       0.16666667,  0.11111111,  0.25,        0.5       }
 				 };
-		double [][] inv = mo.scalarInverse(X);
+		double [][] inv = MatrixOps.scalarInverse(X);
 		assertEqualDoubleArrays(pyinv, inv, epsilon);
 	}
 	
@@ -156,7 +156,7 @@ public class MatrixOpVsPython {
 		//System.out.println("TSne.scalarInverse(X[3,:]) = \n" 
 		//+ ArrayString.printDoubleArray(tsne.scalarInverse(X[3])));
 		double [] pyinv = { 0.14285714,  0.33333333,  0.16666667,  0.14285714,  0.33333333 };
-		double [] inv = mo.scalarInverse(X[3]);
+		double [] inv = MatrixOps.scalarInverse(X[3]);
 		assertEqualDoubleVectors(pyinv, inv, epsilon);
 	}
 
@@ -165,7 +165,7 @@ public class MatrixOpVsPython {
 		double [][] X = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/python/small_ds.txt"), " ");
 		//System.out.println("TSne.scalarDivide(X, 2) = \n" 
 		//+ ArrayString.printDoubleArray(tsne.scalarDivide(X, 2)));
-		double [][] div = mo.scalarDivide(X, 2);
+		double [][] div = MatrixOps.scalarDivide(X, 2);
 		double [][] pydiv = 
 				{{ 0.5,  1.,   1.5,  2.,   2.5},
 				 { 3.,   3.5,  4.,   4.5,  2.5},
@@ -199,7 +199,7 @@ public class MatrixOpVsPython {
 	@Test
 	public void testRangeAssign() {
 		double [][] X = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/python/small_ds.txt"), " ");
-		mo.assignAtIndex(X, MatrixOps.range(4), MatrixOps.range(4), 0);
+		MatrixOps.assignAtIndex(X, MatrixOps.range(4), MatrixOps.range(4), 0);
 		//System.out.println("assignAtIndex(num, range(n), range(n), 0) = \n" 
 		//+ ArrayString.printDoubleArray(X));
 		double [][] pyasgn = 
@@ -228,7 +228,7 @@ public class MatrixOpVsPython {
 				 { 0.,  0.,  0.,  0.,  0.},
 				 { 0.,  0.,  0.,  0.,  0.},
 				 };
-		double [][] min = mo.sMinus(X, X);
+		double [][] min = MatrixOps.sMinus(X, X);
 		assertEqualDoubleArrays(pymin, min, epsilon);
 	}
 
@@ -253,7 +253,7 @@ public class MatrixOpVsPython {
 	@Test
 	public void testTile() {
 		double [][] X = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/python/small_ds.txt"), " ");
-		double [][] PQrowi  = mo.copyCols(X,4);
+		double [][] PQrowi  = MatrixOps.copyCols(X,4);
 		//System.out.println("TSne.tile(X, 3, 1) = \n" 
 		//+ ArrayString.printDoubleArray(tsne.tile(PQrowi, 3, 1)));
 		double [][] pytile1 = 
@@ -261,7 +261,7 @@ public class MatrixOpVsPython {
 				 { 5.,  5.,  3.,  3.,  9.,  5.,  2.,},
 				 { 5.,  5.,  3.,  3.,  9.,  5.,  2.,},
 				};
-		double [][] tile1 = mo.tile(PQrowi, 3, 1);
+		double [][] tile1 = MatrixOps.tile(PQrowi, 3, 1);
 		assertEqualDoubleArrays(pytile1, tile1, epsilon);
 		//System.out.println("TSne.tile(X, 3, 2) = \n" 
 		//+ ArrayString.printDoubleArray(tsne.tile(PQrowi, 3, 2)));
@@ -270,14 +270,14 @@ public class MatrixOpVsPython {
 				 { 5.,  5.,  3.,  3.,  9.,  5.,  2.,  5.,  5.,  3.,  3.,  9.,  5.,  2.},
 				 { 5.,  5.,  3.,  3.,  9.,  5.,  2.,  5.,  5.,  3.,  3.,  9.,  5.,  2.},
 				 };
-		double [][] tile2 = mo.tile(PQrowi, 3, 2);
+		double [][] tile2 = MatrixOps.tile(PQrowi, 3, 2);
 		assertEqualDoubleArrays(pytile2, tile2, epsilon);
 	}
 	
 	@Test
 	public void testAssignCol() {
 		double [][] X = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/python/small_ds.txt"), " ");
-		X[3] = mo.sum(X,0)[0];
+		X[3] = MatrixOps.sum(X,0)[0];
 		//System.out.println("TSne.sum(X,0)[0] = \n" 
 		//+ ArrayString.printDoubleArray(X));
 		double [][] pyasgn = 
@@ -295,7 +295,7 @@ public class MatrixOpVsPython {
 	@Test
 	public void testAssignAllLessThan() {
 		double [][] X = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/python/small_ds.txt"), " ");
-		mo.assignAllLessThan(X,3,-1);
+		MatrixOps.assignAllLessThan(X,3,-1);
 		//System.out.println("TSne.assignAllLessThan(X,3,-1) = \n" 
 		//+ ArrayString.printDoubleArray(X));
 		double [][] pylt =
@@ -313,7 +313,7 @@ public class MatrixOpVsPython {
 	@Test
 	public void testSign() {
 		double [][] X = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/python/small_ds.txt"), " ");
-		mo.assignAllLessThan(X,3,-1);
+		MatrixOps.assignAllLessThan(X,3,-1);
 		//System.out.println("TSne.sign(TSne.assignAllLessThan(X,3,-1)) = \n" 
 		//+ ArrayString.printDoubleArray(tsne.sign(X)));
 	}
@@ -322,10 +322,10 @@ public class MatrixOpVsPython {
 	public void testEqual() {
 		double [][] X = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/python/small_ds.txt"), " ");		
 		double [][] Y = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/python/small_ds.txt"), " ");
-		mo.assignAllLessThan(X,3,-1);
-		mo.assignAllLessThan(Y,2,-1);
+		MatrixOps.assignAllLessThan(X,3,-1);
+		MatrixOps.assignAllLessThan(Y,2,-1);
 		System.out.println("equal(sign(X),sign(Y) ="); 
-		printBoolMtx(mo.equal(mo.sign(X),mo.sign(Y)));
+		printBoolMtx(MatrixOps.equal(MatrixOps.sign(X),MatrixOps.sign(Y)));
 	}
 	
 	public void printBoolMtx(boolean [][]mtx) {
@@ -359,15 +359,15 @@ public class MatrixOpVsPython {
 	@Test
 	public void testVMean() {
 		double [][] X = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/python/small_ds.txt"), " ");
-		System.out.println("TSne.mean(X[3,:]) = \n" + mo.mean(X[3]));
-		assertEquals(5.2, mo.mean(X[3]), epsilon);
+		System.out.println("TSne.mean(X[3,:]) = \n" + MatrixOps.mean(X[3]));
+		assertEquals(5.2, MatrixOps.mean(X[3]), epsilon);
 	}
 
 	@Test
 	public void testElementWiseDivide() {
 		double [][] X = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/python/small_ds.txt"), " ");		
 		double [][] Y = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/python/small_ds.txt"), " ");
-		Y = mo.scalarDivide(Y, 2);
+		Y = MatrixOps.scalarDivide(Y, 2);
 		//System.out.println("Y=\n" + ArrayString.printDoubleArray(Y));
 		//System.out.println(" X / (X/2) =" 
 		//+ ArrayString.printDoubleArray(tsne.scalarDivide(X, Y)));
@@ -380,7 +380,7 @@ public class MatrixOpVsPython {
 			 { 2.,  2.,  2.,  2.,  2.},
 			 { 2.,  2.,  2.,  2.,  2.},
 			};
-		double [][] div = mo.scalarDivide(X, Y);
+		double [][] div = MatrixOps.scalarDivide(X, Y);
 		assertEqualDoubleArrays(pydiv, div, epsilon);
 	}
 	
@@ -405,7 +405,7 @@ public class MatrixOpVsPython {
 				 {  7.38905610e+00,   5.45981500e+01,   1.09663316e+03,   2.98095799e+03,	    8.10308393e+03},
 				 {  2.00855369e+01,   5.45981500e+01,   2.00855369e+01,   2.00855369e+01,	    1.48413159e+02},
 				 {  2.98095799e+03,   4.03428793e+02,   8.10308393e+03,   5.45981500e+01,	    7.38905610e+00}};
-		double [][] jexp = mo.exp(X);
+		double [][] jexp = MatrixOps.exp(X);
 		assertEqualDoubleArrays(pyexp, jexp, 0.00001);
 	}
 	
@@ -433,7 +433,7 @@ public class MatrixOpVsPython {
 		int [] v2 = {3,4,5,6};
 		//System.out.println(ArrayString.printIntArray(v1) + " + " +  ArrayString.printIntArray(v2) + " = "
 		//		+ ArrayString.printIntArray(tsne.concatenate(v1, v2)));
-		int [] v3 = mo.concatenate(v1, v2);
+		int [] v3 = MatrixOps.concatenate(v1, v2);
 		int [] expct = {1,2,3,4,3,4,5,6};
 		assertEqualIntVectors(expct, v3);
 	}
@@ -441,7 +441,7 @@ public class MatrixOpVsPython {
 	@Test 
 	public void testDiagWide() {
 		double [][] diag = {{1,2,3,4,5}};
-		double [][] dmatrix = mo.diag(diag);
+		double [][] dmatrix = MatrixOps.diag(diag);
 		for (int i = 0; i < dmatrix.length; i++) {
 			for (int j = 0; j < dmatrix[0].length; j++) {
 				if(i==j) assertEquals(dmatrix[i][j],diag[0][i],epsilon);
@@ -452,7 +452,7 @@ public class MatrixOpVsPython {
 	@Test 
 	public void testDiagLong() {
 		double [][] diag = {{1},{2},{3},{4},{5}};
-		double [][] dmatrix = mo.diag(diag);
+		double [][] dmatrix = MatrixOps.diag(diag);
 		for (int i = 0; i < dmatrix.length; i++) {
 			for (int j = 0; j < dmatrix[0].length; j++) {
 				if(i==j) assertEquals(dmatrix[i][j],diag[i][0],epsilon);
