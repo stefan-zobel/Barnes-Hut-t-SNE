@@ -29,105 +29,105 @@ import com.jujutsu.utils.TSneUtils;
  */
 public class WorkArrayReuseTest {
 
-	private static final Supplier<BHTSne> SERIAL = new Supplier<BHTSne>() {
-		@Override
-		public BHTSne get() {
-			return new BHTSne();
-		}
-	};
+    private static final Supplier<BHTSne> SERIAL = new Supplier<BHTSne>() {
+        @Override
+        public BHTSne get() {
+            return new BHTSne();
+        }
+    };
 
-	private static final Supplier<BHTSne> PARALLEL = new Supplier<BHTSne>() {
-		@Override
-		public BHTSne get() {
-			return new ParallelBHTsne();
-		}
-	};
+    private static final Supplier<BHTSne> PARALLEL = new Supplier<BHTSne>() {
+        @Override
+        public BHTSne get() {
+            return new ParallelBHTsne();
+        }
+    };
 
-	@Test
-	public void aLargerSecondRunIsUnaffectedByTheFirst() {
-		// the case that used to throw
-		assertReuseMatchesAFreshInstance(SERIAL, 100, 2, 200, 2);
-		assertReuseMatchesAFreshInstance(PARALLEL, 100, 2, 200, 2);
-	}
+    @Test
+    public void aLargerSecondRunIsUnaffectedByTheFirst() {
+        // the case that used to throw
+        assertReuseMatchesAFreshInstance(SERIAL, 100, 2, 200, 2);
+        assertReuseMatchesAFreshInstance(PARALLEL, 100, 2, 200, 2);
+    }
 
-	@Test
-	public void aSecondRunWithMoreOutputDimensionsIsUnaffectedByTheFirst() {
-		// the same defect along the other axis, and it used to throw as well
-		assertReuseMatchesAFreshInstance(SERIAL, 100, 2, 100, 3);
-		assertReuseMatchesAFreshInstance(PARALLEL, 100, 2, 100, 3);
-	}
+    @Test
+    public void aSecondRunWithMoreOutputDimensionsIsUnaffectedByTheFirst() {
+        // the same defect along the other axis, and it used to throw as well
+        assertReuseMatchesAFreshInstance(SERIAL, 100, 2, 100, 3);
+        assertReuseMatchesAFreshInstance(PARALLEL, 100, 2, 100, 3);
+    }
 
-	@Test
-	public void aSmallerSecondRunIsUnaffectedByTheFirst() {
-		// this one was already correct - it is here so that the fix cannot break it
-		assertReuseMatchesAFreshInstance(SERIAL, 200, 2, 100, 2);
-		assertReuseMatchesAFreshInstance(PARALLEL, 200, 2, 100, 2);
-	}
+    @Test
+    public void aSmallerSecondRunIsUnaffectedByTheFirst() {
+        // this one was already correct - it is here so that the fix cannot break it
+        assertReuseMatchesAFreshInstance(SERIAL, 200, 2, 100, 2);
+        assertReuseMatchesAFreshInstance(PARALLEL, 200, 2, 100, 2);
+    }
 
-	@Test
-	public void aSecondRunOfTheSameShapeReusesTheArrays() {
-		// the point of holding them in fields at all: no reallocation when nothing changed
-		assertSameShapeKeepsTheArrays(SERIAL);
-		assertSameShapeKeepsTheArrays(PARALLEL);
-	}
+    @Test
+    public void aSecondRunOfTheSameShapeReusesTheArrays() {
+        // the point of holding them in fields at all: no reallocation when nothing changed
+        assertSameShapeKeepsTheArrays(SERIAL);
+        assertSameShapeKeepsTheArrays(PARALLEL);
+    }
 
-	@Test
-	public void aSecondRunOfADifferentShapeReplacesTheArrays() {
-		assertDifferentShapeReplacesTheArrays(SERIAL);
-		assertDifferentShapeReplacesTheArrays(PARALLEL);
-	}
+    @Test
+    public void aSecondRunOfADifferentShapeReplacesTheArrays() {
+        assertDifferentShapeReplacesTheArrays(SERIAL);
+        assertDifferentShapeReplacesTheArrays(PARALLEL);
+    }
 
-	private static void assertSameShapeKeepsTheArrays(Supplier<BHTSne> implementation) {
-		BHTSne tsne = implementation.get();
-		tsne.tsne(config(data(100, 17), 2));
-		double[] afterFirst = tsne.pos_f;
+    private static void assertSameShapeKeepsTheArrays(Supplier<BHTSne> implementation) {
+        BHTSne tsne = implementation.get();
+        tsne.tsne(config(data(100, 17), 2));
+        double[] afterFirst = tsne.pos_f;
 
-		tsne.tsne(config(data(100, 4711), 2));
+        tsne.tsne(config(data(100, 4711), 2));
 
-		assertSame(name(tsne) + ": the same shape must not reallocate", afterFirst, tsne.pos_f);
-	}
+        assertSame(name(tsne) + ": the same shape must not reallocate", afterFirst, tsne.pos_f);
+    }
 
-	private static void assertDifferentShapeReplacesTheArrays(Supplier<BHTSne> implementation) {
-		BHTSne tsne = implementation.get();
-		tsne.tsne(config(data(100, 17), 2));
-		double[] afterFirst = tsne.pos_f;
+    private static void assertDifferentShapeReplacesTheArrays(Supplier<BHTSne> implementation) {
+        BHTSne tsne = implementation.get();
+        tsne.tsne(config(data(100, 17), 2));
+        double[] afterFirst = tsne.pos_f;
 
-		tsne.tsne(config(data(200, 4711), 2));
+        tsne.tsne(config(data(200, 4711), 2));
 
-		assertNotSame(name(tsne) + ": a different shape must reallocate", afterFirst, tsne.pos_f);
-	}
+        assertNotSame(name(tsne) + ": a different shape must reallocate", afterFirst, tsne.pos_f);
+    }
 
-	private static void assertReuseMatchesAFreshInstance(Supplier<BHTSne> implementation, int firstN,
-			int firstDims, int secondN, int secondDims) {
-		double[][] first = data(firstN, 17);
-		double[][] second = data(secondN, 4711);
+    private static void assertReuseMatchesAFreshInstance(Supplier<BHTSne> implementation, int firstN,
+            int firstDims, int secondN, int secondDims) {
+        double[][] first = data(firstN, 17);
+        double[][] second = data(secondN, 4711);
 
-		BHTSne reused = implementation.get();
-		reused.tsne(config(first, firstDims));
-		double[][] viaReuse = reused.tsne(config(second, secondDims));
+        BHTSne reused = implementation.get();
+        reused.tsne(config(first, firstDims));
+        double[][] viaReuse = reused.tsne(config(second, secondDims));
 
-		double[][] viaFresh = implementation.get().tsne(config(second, secondDims));
+        double[][] viaFresh = implementation.get().tsne(config(second, secondDims));
 
-		for (int i = 0; i < viaFresh.length; i++) {
-			assertArrayEquals(name(reused) + ": row " + i + " differs from a fresh instance",
-					viaFresh[i], viaReuse[i], 0.0);
-		}
-	}
+        for (int i = 0; i < viaFresh.length; i++) {
+            assertArrayEquals(name(reused) + ": row " + i + " differs from a fresh instance",
+                    viaFresh[i], viaReuse[i], 0.0);
+        }
+    }
 
-	private static String name(BHTSne tsne) {
-		return tsne.getClass().getSimpleName();
-	}
+    private static String name(BHTSne tsne) {
+        return tsne.getClass().getSimpleName();
+    }
 
-	private static TSneConfiguration config(double[][] x, int outputDims) {
-		return TSneUtils.buildConfig(x, outputDims, x[0].length, 10.0, 40, false, 0.5, true, false);
-	}
+    private static TSneConfiguration config(double[][] x, int outputDims) {
+        return TSneUtils.buildConfig(x, outputDims, x[0].length, 10.0, 40, false, 0.5, true, false);
+    }
 
-	private static double[][] data(int n, long seed) {
-		Random random = new Random(seed);
-		double[][] x = new double[n][8];
-		for (int i = 0; i < n; i++) {
-			for (int j = 0; j < x[i].length; j++) x[i][j] = random.nextGaussian();
-		}
-		return x;
-	}
+    private static double[][] data(int n, long seed) {
+        Random random = new Random(seed);
+        double[][] x = new double[n][8];
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < x[i].length; j++) x[i][j] = random.nextGaussian();
+        }
+        return x;
+    }
 }

@@ -19,63 +19,63 @@ import static java.lang.Math.sqrt;
  */
 public class DataPoint {
 
-	int _ind;
-	/** the array the coordinates live in, shared with the other points of the same data set */
-	double [] _x;
-	/** index of this point's first coordinate in {@link #_x} */
-	int _offset;
-	int _D;
+    int _ind;
+    /** the array the coordinates live in, shared with the other points of the same data set */
+    double [] _x;
+    /** index of this point's first coordinate in {@link #_x} */
+    int _offset;
+    int _D;
 
-	public DataPoint() {
+    public DataPoint() {
         _D = 1;
         _ind = -1;
     }
 
-	/**
-	 * A point over a standalone row.
-	 *
-	 * @param D the dimensionality
-	 * @param ind index of the point in its data set
-	 * @param x the coordinates. They are <em>not</em> copied: the point reads them from this array for
-	 *            as long as it lives, so writing to it afterwards changes the point.
-	 */
-	public DataPoint(int D, int ind, double [] x) {
-		this(x, 0, D, ind);
-	}
+    /**
+     * A point over a standalone row.
+     *
+     * @param D the dimensionality
+     * @param ind index of the point in its data set
+     * @param x the coordinates. They are <em>not</em> copied: the point reads them from this array for
+     *            as long as it lives, so writing to it afterwards changes the point.
+     */
+    public DataPoint(int D, int ind, double [] x) {
+        this(x, 0, D, ind);
+    }
 
-	/**
-	 * A point over one row of a flat {@code N x D} matrix.
-	 *
-	 * @param x the flat matrix, not copied
-	 * @param offset index of this point's first coordinate in {@code x}
-	 * @param D the dimensionality
-	 * @param ind index of the point in its data set
-	 */
-	public DataPoint(double [] x, int offset, int D, int ind) {
-		_x = x;
-		_offset = offset;
-		_D = D;
-		_ind = ind;
-	}
+    /**
+     * A point over one row of a flat {@code N x D} matrix.
+     *
+     * @param x the flat matrix, not copied
+     * @param offset index of this point's first coordinate in {@code x}
+     * @param D the dimensionality
+     * @param ind index of the point in its data set
+     */
+    public DataPoint(double [] x, int offset, int D, int ind) {
+        _x = x;
+        _offset = offset;
+        _D = D;
+        _ind = ind;
+    }
 
-	@Override
-	public String toString() {
-		String xStr = "";
-		for (int i = 0; i < min(20,_D); i++) {
-			xStr += _x[_offset + i] + ", ";
-		}
-		return "DataPoint (index=" + _ind+ ", Dim=" + _D + ", point=" + xStr + ")";
-	}
+    @Override
+    public String toString() {
+        String xStr = "";
+        for (int i = 0; i < min(20,_D); i++) {
+            xStr += _x[_offset + i] + ", ";
+        }
+        return "DataPoint (index=" + _ind+ ", Dim=" + _D + ", point=" + xStr + ")";
+    }
 
-	public int index() { return _ind; }
-	int dimensionality() { return _D; }
-	double x(int d) { return _x[_offset + d]; }
+    public int index() { return _ind; }
+    int dimensionality() { return _D; }
+    double x(int d) { return _x[_offset + d]; }
 
-	public double euclidean_distance( DataPoint t1 ) {
-	    return sqrt(EuclideanDistance.squaredDistance(t1._x, t1._offset, _x, _offset, t1._D));
-	}
+    public double euclidean_distance( DataPoint t1 ) {
+        return sqrt(EuclideanDistance.squaredDistance(t1._x, t1._offset, _x, _offset, t1._D));
+    }
 
-	public static double euclidean_distance( DataPoint t1, DataPoint t2 ) {
-	    return sqrt(EuclideanDistance.squaredDistance(t1._x, t1._offset, t2._x, t2._offset, t1._D));
-	}
+    public static double euclidean_distance( DataPoint t1, DataPoint t2 ) {
+        return sqrt(EuclideanDistance.squaredDistance(t1._x, t1._offset, t2._x, t2._offset, t1._D));
+    }
 }
