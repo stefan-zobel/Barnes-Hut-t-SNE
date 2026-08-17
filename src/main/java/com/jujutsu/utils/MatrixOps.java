@@ -198,8 +198,9 @@ public class MatrixOps {
     /**
      * This function returns a new matrix which is centered and scaled, i.e each
      * the global mean is subtracted from each element in the matrix and divided 
-     * by the global matrix standard deviation   
+     * by the global matrix standard deviation
      *
+     * @param matrix the input matrix
      * @return new matrix which is centered (subtracted mean) and scaled (divided with stddev)
      */
     public static double [][] centerAndScaleGlobal(double [][] matrix) {
@@ -218,8 +219,9 @@ public class MatrixOps {
     /**
      * This function returns a new matrix which is centered and scaled, i.e each
      * the column mean is subtracted from each column element in the matrix and 
-     * divided by the respective column matrix standard deviation 
-     *   
+     * divided by the respective column matrix standard deviation
+     *
+     * @param matrix the input matrix
      * @return new matrix which is centered (subtracted mean) and scaled (divided with stddev)
      */
     public static double [][] centerAndScale(double [][] matrix) {
@@ -255,8 +257,9 @@ public class MatrixOps {
     }
     
     /**
-     * This function returns adds a small amount of noise to each column  
-     * 
+     * This function returns adds a small amount of noise to each column
+     *
+     * @param matrix the input matrix
      * @return new matrix with added noise
      */
     public static double [][] addNoise(double [][] matrix) {
@@ -274,8 +277,8 @@ public class MatrixOps {
 
     /**
      * Returns a new matrix which is the transpose of input matrix
-     * @param matrix
-     * @return
+     * @param matrix the input matrix
+     * @return new matrix which is the transpose of the input matrix
      */
     public static double[][] transposeSerial(double[][] matrix) {
         int rows = matrix.length;
@@ -295,8 +298,9 @@ public class MatrixOps {
     // Unit Tested
     /**
      * Returns a new matrix which is the transpose of input matrix
-     * @param matrix
-     * @return
+     * @param matrix the input matrix
+     * @param ll     number of rows below which a chunk is transposed sequentially
+     * @return new matrix which is the transpose of the input matrix
      */
     public double[][] transpose(double[][] matrix, int ll) {
         int cols = matrix[0].length;
@@ -366,7 +370,7 @@ public class MatrixOps {
     // Unit Tested
     /**
      * Returns a new matrix with values exponentiated
-     * @param matrix
+     * @param m1 the input matrix
      * @return new matrix with values exponentiated
      */
     public static double [][] exp(double [][] m1) {
@@ -382,7 +386,7 @@ public class MatrixOps {
     // Unit Tested
     /**
      * Returns new vetcor with vals sqrt'ed
-     * @param vector
+     * @param v1 the input vector
      * @return new vector with values sqrt'ed
      */
     public static double [] sqrt(double [] v1) {
@@ -395,7 +399,7 @@ public class MatrixOps {
 
     // Unit Tested
     /**
-     * @param vector
+     * @param vector the input vector
      * @return mean of values in vector
      */
     public static double mean(double [] vector) {
@@ -409,7 +413,7 @@ public class MatrixOps {
     // Unit Tested
     /**
      * Returns a new matrix with values that are the log of the input matrix
-     * @param matrix
+     * @param m1 the input matrix
      * @return  same matrix with values log'ed
      */
     public static double [][] log(double [][] m1) {
@@ -424,8 +428,8 @@ public class MatrixOps {
 
     /**
      * Returns a new matrix with values that are taken to the power of the input matrix
-     * @param matrix
-     * @param power
+     * @param m1    the input matrix
+     * @param power the exponent to raise each value to
      * @return  same matrix with values pow'ed
      */
     public static double [][] pow(double [][] m1, double power) {
@@ -440,9 +444,9 @@ public class MatrixOps {
 
     /**
      * Returns a new matrix with values that are taken to the power of the input matrix
-     * @param matrix
-     * @param power
-     * @return  same matrix with values pow'ed
+     * @param m1    the input vector
+     * @param power the exponent to raise each value to
+     * @return  same vector with values pow'ed
      */
     public static double [] pow(double [] m1, double power) {
         double[] matrix = new double[m1.length];
@@ -454,7 +458,7 @@ public class MatrixOps {
 
     /**
      * Returns a new matrix with values that are the log of the input matrix
-     * @param matrix
+     * @param m1 the input matrix
      * @param infAsZero treat +- Infinity as zero, i.e replaces Infinity with 0.0
      * if set to true
      * @return  same matrix with values log'ed
@@ -473,7 +477,7 @@ public class MatrixOps {
 
     // Unit Tested
     /**
-     * @param matrix
+     * @param m1 the input matrix
      * @return scalar inverse of matrix
      */
     public static double [][] scalarInverse(double [][] m1) {
@@ -488,7 +492,7 @@ public class MatrixOps {
 
     // Unit Tested
     /**
-     * @param vector
+     * @param v1 the input vector
      * @return scalar inverse of vector
      */
     public static double [] scalarInverse(double [] v1) {
@@ -500,8 +504,8 @@ public class MatrixOps {
     }
 
     /**
-     * @param m
-     * @param n
+     * @param m number of rows
+     * @param n number of columns
      * @return new 2D matrix with normal random values with mean 0 and std. dev 1
      */
     public static double[][] rnorm(int m, int n) {
@@ -536,8 +540,8 @@ public class MatrixOps {
 
     /**
      * Generate random draw from Normal with mean mu and std. dev sigma
-     * @param mu
-     * @param sigma
+     * @param mu    mean of the normal distribution
+     * @param sigma standard deviation of the normal distribution
      * @return random sample
      */
     public static double rnorm(double mu, double sigma) {
@@ -548,8 +552,8 @@ public class MatrixOps {
     /**
      * Returns a new matrix of booleans where true is set if the values to the two matrices are
      * the same at that index
-     * @param matrix1
-     * @param matrix2
+     * @param matrix1 the first matrix
+     * @param matrix2 the second matrix, of the same dimensions as matrix1
      * @return new matrix with booelans with values matrix1[i,j] == matrix2[i,j]
      */
     public static boolean [][] equal(double [][] matrix1, double [][] matrix2) {
@@ -571,8 +575,8 @@ public class MatrixOps {
     /**
      * Returns a new matrix of booleans where true is set if the values to the two matrices are
      * the same at that index
-     * @param matrix1
-     * @param matrix2
+     * @param matrix1 the first matrix
+     * @param matrix2 the second matrix, of the same dimensions as matrix1
      * @return new matrix with booelans with values matrix1[i,j] == matrix2[i,j]
      */
     public static boolean [][] equal(boolean [][] matrix1, boolean [][] matrix2) {
@@ -594,9 +598,9 @@ public class MatrixOps {
     /**
      * Returns a new matrix of booleans where true is set if the value in the matrix is
      * bigger than value
-     * @param matrix
-     * @param value
-     * @return new matrix with booelans with values matrix1[i,j] == matrix2[i,j]
+     * @param matrix the input matrix
+     * @param value  the value each element is compared against
+     * @return new matrix with booleans with values matrix[i,j] &gt; value
      */
     public static boolean [][] biggerThan(double [][] matrix, double value) {
         boolean [][] equals = new boolean[matrix.length][matrix[0].length];
@@ -609,7 +613,7 @@ public class MatrixOps {
     }
 
     /**
-     * @param booleans
+     * @param booleans the input matrix
      * @return new matrix with booleans which are the negations of the input
      */
     public static boolean [][] negate(boolean [][] booleans) {
@@ -623,8 +627,8 @@ public class MatrixOps {
     }
 
     /**
-     * @param booleans
-     * @return
+     * @param booleans the input matrix
+     * @return new matrix with 1.0 where the input is true and 0.0 where it is false
      */
     public static double [][] abs(boolean [][] booleans) {
         double [][] absolutes = new double[booleans.length][booleans[0].length];
@@ -637,8 +641,8 @@ public class MatrixOps {
     }
 
     /**
-     * @param vals
-     * @return
+     * @param vals the input matrix
+     * @return new matrix with the absolute values of the input
      */
     public static double [][] abs(double [][] vals) {
         double [][] absolutes = new double[vals.length][vals[0].length];
@@ -651,8 +655,8 @@ public class MatrixOps {
     }
 
     /**
-     * @param absolutes
-     * @return
+     * @param vals the input vector
+     * @return new vector with the absolute values of the input
      */
     public static double [] abs(double [] vals) {
         double [] absolutes = new double[vals.length];
@@ -746,9 +750,9 @@ public class MatrixOps {
 
     // Unit Tested
     /**
-     * Returns a new matrix which is the transpose of input matrix
-     * @param matrix
-     * @return
+     * Returns the sum of all values in the input matrix, computed in parallel
+     * @param matrix the input matrix
+     * @return sum of all values in the matrix
      */
     public double sumPar(double[][] matrix) {
         int ll = 100;
@@ -822,7 +826,7 @@ public class MatrixOps {
 
     // Unit Tested
     /**
-     * @param matrix
+     * @param matrix the input matrix
      * @return sum of all values in the matrix
      */
     public static double sum(double [][] matrix) {
@@ -846,9 +850,9 @@ public class MatrixOps {
     /**
      * Return a new matrix with the max value of either the value in the matrix 
      * or maxval otherwise 
-     * @param matrix
-     * @param maxval
-     * @return
+     * @param matrix the input matrix
+     * @param maxval the lower bound each value is clamped to
+     * @return new matrix with the element-wise maximum of matrix and maxval
      */
     public static double [][] maximum(double [][] matrix, double maxval) {
         double [][] maxed = new double[matrix.length][matrix[0].length];
@@ -864,10 +868,9 @@ public class MatrixOps {
     /**
      * All values in matrix that is less than <code>lessthan</code> is assigned
      * the value <code>assign</code>
-     * @param matrix
-     * @param lessthan
-     * @param assign
-     * @return
+     * @param matrix   the matrix that is modified in place
+     * @param lessthan the threshold each value is compared against
+     * @param assign   the value assigned to all elements below the threshold
      */
     public static void assignAllLessThan(double[][] matrix, double lessthan, double assign) {
         for (int i = 0; i < matrix.length; i++) {
@@ -881,7 +884,7 @@ public class MatrixOps {
 
     // Unit Tested
     /**
-     * @param matrix
+     * @param matrix the input matrix
      * @return a new matrix with the values of matrix squared
      */
     public static double [][] square(double [][] matrix) {
@@ -890,9 +893,9 @@ public class MatrixOps {
 
     /** 
      * Replaces NaN's with repl
-     * @param matrix
-     * @param repl
-     * @return
+     * @param matrix the input matrix
+     * @param repl   the replacement value
+     * @return new matrix where every NaN has been replaced by repl
      */
     public static double [][] replaceNaN(double [][] matrix, double repl) {
         double [][] result = new double[matrix.length][matrix[0].length];
@@ -910,9 +913,9 @@ public class MatrixOps {
 
     /** 
      * Replaces Infinity's with repl
-     * @param matrix
-     * @param repl
-     * @return
+     * @param matrix the input matrix
+     * @param repl   the replacement value
+     * @return new matrix where every infinite value has been replaced by repl
      */
     public static double [][] replaceInf(double [][] matrix, double repl) {
         double [][] result = new double[matrix.length][matrix[0].length];
@@ -1249,7 +1252,7 @@ public class MatrixOps {
     }
 
     /**
-     * @param matrix
+     * @param matrix the input matrix
      * @return a new vector with the column means of matrix
      */
     public static double[] colMeans(double[][] matrix) {
