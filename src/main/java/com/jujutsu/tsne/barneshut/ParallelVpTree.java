@@ -1,10 +1,6 @@
 package com.jujutsu.tsne.barneshut;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
-import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -12,85 +8,56 @@ import com.jujutsu.tsne.progress.TSneProgress;
 
 public class ParallelVpTree<StorageType> extends VpTree<StorageType> {
 
-	/** Name of the progress task reported by {@link #searchMultiple(ParallelVpTree, DataPoint[], int)}. */
-	public static final String TASK_PERPLEXITY = "Perplexity";
+    /** Name of the progress task reported by {@link #searchMultiple(ParallelVpTree, DataPoint[], int)}. */
+    public static final String TASK_PERPLEXITY = "Perplexity";
 
-	public ParallelVpTree(Distance distance) {
-		super(distance);
-	}
+    public ParallelVpTree(Distance distance) {
+        super(distance);
+    }
 
-	public List<TreeSearchResult> searchMultiple(ParallelVpTree<StorageType> tree, DataPoint [] targets, int k) {
-		VpTree<StorageType>.Node node = tree.getRoot();
-		List<TreeSearchResult> results = Collections.synchronizedList(new ArrayList<TreeSearchResult>());
+    /**
+     * A tree whose vantage point choice is reproducible, see {@link VpTree#VpTree(Distance, long)}.
+     * The search is parallel either way; only the build reads the generator, and it is single
+     * threaded.
+     *
+     * @param distance the metric
+     * @param seed seed for the vantage point choice
+     */
+    public ParallelVpTree(Distance distance, long seed) {
+        super(distance, seed);
+    }
 
-		TSneProgress.reset(TASK_PERPLEXITY, targets.length);
-		IntStream.range(0, targets.length).parallel().forEach(n -> {
-			DataPoint target = targets[n];
-			List<DataPoint> indices = new ArrayList<>();
-			List<Double> distances = new ArrayList<>();
-			PriorityQueue<HeapItem> heap = new PriorityQueue<HeapItem>(k,new Comparator<HeapItem>() {
-				@Override
-				public int compare(HeapItem o1, HeapItem o2) {
-					return -1 * o1.compareTo(o2);
-				}
-			}); 
+    /**
+     * Searches the k nearest neighbours of every target in parallel.
+     *
+     * @param tree the tree to search, whose root is used
+     * @param targets the points to search neighbours for
+     * @param k the number of neighbours per target
+     * @return one result per target, in the order of {@code targets}
+     */
+    public List<TreeSearchResult> searchMultiple(ParallelVpTree<StorageType> tree, DataPoint [] targets, int k) {
+        VpTree<StorageType>.Node node = tree.getRoot();
 
-			double tau = Double.MAX_VALUE;
-			// Perform the search
-			node.search(node, target, k, heap, tau);
+        TSneProgress.reset(TASK_PERPLEXITY, targets.length);
+        // collecting from the stream keeps the encounter order and needs no lock, the previous
+        // synchronized list serialized all worker threads on one monitor
+        List<TreeSearchResult> results = IntStream.range(0, targets.length).parallel().mapToObj(n -> {
+            DataPoint [] neighbors = new DataPoint[k];
+            double [] distances = new double[k];
+            NeighborHeap heap = new NeighborHeap(k);
 
-			// Gather final results
-			while(!heap.isEmpty()) {
-				indices.add(_items[heap.peek().index]);
-				distances.add(heap.peek().dist);
-				heap.remove();
-			}
-			
-			// Results are in reverse order 
-			Collections.reverse(indices);
-			Collections.reverse(distances);
+            double tau = Double.MAX_VALUE;
+            // Perform the search
+            node.search(node, targets[n], k, heap, tau);
 
-			results.add(new TreeSearchResult(indices, distances,n));
-			TSneProgress.update();
-		});
-		TSneProgress.finished();
+            // Gather final results, the heap yields them nearest first
+            heap.drainAscending(_items, neighbors, distances);
 
-		return results;
-	}
+            TSneProgress.update();
+            return new TreeSearchResult(neighbors, distances, n);
+        }).collect(Collectors.toList());
+        TSneProgress.finished();
 
-	public List<TreeSearchResult> searchMultipleWOProgress(ParallelVpTree<StorageType> tree, DataPoint [] targets, int k) {
-		VpTree<StorageType>.Node node = tree.getRoot();
-		
-		List<TreeSearchResult> results =  
-		IntStream.range(0, targets.length).parallel().mapToObj(n -> {
-			DataPoint target = targets[n];
-			List<DataPoint> indices = new ArrayList<>();
-			List<Double> distances = new ArrayList<>();
-			PriorityQueue<HeapItem> heap = new PriorityQueue<HeapItem>(k,new Comparator<HeapItem>() {
-				@Override
-				public int compare(HeapItem o1, HeapItem o2) {
-					return -1 * o1.compareTo(o2);
-				}
-			}); 
-
-			double tau = Double.MAX_VALUE;
-			// Perform the search
-			node.search(node, target, k, heap, tau);
-
-			// Gather final results
-			while(!heap.isEmpty()) {
-				indices.add(_items[heap.peek().index]);
-				distances.add(heap.peek().dist);
-				heap.remove();
-			}
-			
-			// Results are in reverse order 
-			Collections.reverse(indices);
-			Collections.reverse(distances);
-
-			return new TreeSearchResult(indices, distances,n);
-		}).collect(Collectors.toList());
-		
-		return results;
-	}
+        return results;
+    }
 }

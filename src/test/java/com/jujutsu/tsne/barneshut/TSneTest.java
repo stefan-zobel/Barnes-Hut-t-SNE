@@ -11,6 +11,7 @@ public class TSneTest {
         int initial_dims = 55;
         double perplexity = 20.0;
         double[][] X = MatrixUtils.simpleRead2DMatrix(new File("src/test/resources/datasets/mnist2500_X.txt"), "   ");
+        System.out.println("Finished reading data, starting t-SNE...");
 
         BarnesHutTSne tsne;
         boolean parallel = true;
@@ -20,6 +21,8 @@ public class TSneTest {
             tsne = new BHTSne();
         }
         TSneConfiguration config = TSneUtils.buildConfig(X, 2, initial_dims, perplexity, 1000);
+
+        @SuppressWarnings("unused")
         double[][] Y = tsne.tsne(config);
 
         // Plot Y or save Y to file and plot with some other tool such as for

@@ -3,23 +3,24 @@ package com.jujutsu.tsne.barneshut;
 import java.util.Comparator;
 
 public class DistanceComparator implements Comparator<DataPoint> {
-	DataPoint refItem; 
-	Distance dist;
-	
-	DistanceComparator(DataPoint refItem) {
-		this.refItem = refItem;
-		this.dist = new EuclideanDistance();
-	}
-	
-	DistanceComparator(DataPoint refItem, Distance dist) {
-		this.refItem = refItem;
-		this.dist = dist;
-	}
+    DataPoint refItem; 
+    Distance dist;
 
-	@Override
-	public int compare(DataPoint o1, DataPoint o2) {
-		//System.out.println("Reference " + refItem._ind + " " + Arrays.toString(refItem._x) + " ===> Comparing " + o1._ind + " " + Arrays.toString(o1._x) + " < " + o2._ind + " " + Arrays.toString(o2._x) + "### Distance: x=" + dist.distance(o1, refItem) + " <==> " + dist.distance(o2, refItem));
-		return dist.distance(o1, refItem) < dist.distance(o2, refItem) ? -1 :
-			(dist.distance(o1, refItem) > dist.distance(o2, refItem) ? 1 : 0);
-	}
+    DistanceComparator(DataPoint refItem) {
+        this.refItem = refItem;
+        this.dist = new EuclideanDistance();
+    }
+
+    DistanceComparator(DataPoint refItem, Distance dist) {
+        this.refItem = refItem;
+        this.dist = dist;
+    }
+
+    @Override
+    public int compare(DataPoint o1, DataPoint o2) {
+        // evaluate each distance exactly once, the ternary chain used to compute up to four of them
+        double d1 = dist.distance(o1, refItem);
+        double d2 = dist.distance(o2, refItem);
+        return d1 < d2 ? -1 : (d1 > d2 ? 1 : 0);
+    }
 }
